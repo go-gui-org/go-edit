@@ -152,9 +152,14 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 
 func editorOnMouseScroll(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.Event, *gui.Window) {
 	return func(layout *gui.Layout, e *gui.Event, w *gui.Window) {
+		// Guard NaN/Inf from a misbehaving backend.
+		dy := e.ScrollY
+		if dy != dy || dy > 1e6 || dy < -1e6 {
+			return
+		}
 		st := loadState(w, cfg.IDFocus)
 		// Positive ScrollY means scroll up; invert for natural feel.
-		st.ScrollY -= e.ScrollY * frame.lineHeight * 3
+		st.ScrollY -= dy * frame.lineHeight * 3
 		clampScroll(&st, cfg, frame.lineHeight)
 		storeState(w, cfg.IDFocus, st)
 		e.IsHandled = true
@@ -287,8 +292,16 @@ func clampCursor(st *editorState, buf *buffer.Buffer) {
 	}
 }
 
-// clampScroll keeps ScrollY within [0, maxScroll].
+// clampScroll keeps ScrollY within [0, maxScroll]. Also sanitizes
+// NaN — if ScrollY went NaN from bad input upstream, snap to 0.
 func clampScroll(st *editorState, cfg EditorCfg, lh float32) {
+	if st.ScrollY != st.ScrollY { // NaN
+		st.ScrollY = 0
+	}
+	if lh <= 0 {
+		st.ScrollY = 0
+		return
+	}
 	maxScroll := float32(cfg.Buffer.LineCount())*lh - cfg.Height
 	if maxScroll < 0 {
 		maxScroll = 0
@@ -303,6 +316,9 @@ func clampScroll(st *editorState, cfg EditorCfg, lh float32) {
 
 func ensureCursorVisible(st *editorState, frame *editorFrameData, viewportH float32) {
 	if !frame.valid || frame.lineHeight <= 0 {
+		return
+	}
+	if viewportH != viewportH || viewportH <= 0 { // NaN or non-positive
 		return
 	}
 	lh := frame.lineHeight

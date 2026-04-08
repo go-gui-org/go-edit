@@ -1,6 +1,35 @@
 package text
 
-import "testing"
+import (
+	"math"
+	"testing"
+
+	"github.com/mike-ward/go-gui/gui"
+)
+
+func TestNew_NilWindow(t *testing.T) {
+	if m := New(nil, gui.TextStyle{}); m != nil {
+		t.Errorf("New(nil)=%v want nil", m)
+	}
+}
+
+func TestMeasurer_NilReceiverSafe(t *testing.T) {
+	var m *Measurer
+	if got := m.XForColumn([]byte("hi"), 2); got != 0 {
+		t.Errorf("XForColumn on nil=%v want 0", got)
+	}
+	if got := m.ColumnForX([]byte("hi"), 10); got != 0 {
+		t.Errorf("ColumnForX on nil=%v want 0", got)
+	}
+}
+
+func TestColumnForX_NaN(t *testing.T) {
+	m := &Measurer{advance: 8, lineHeight: 16}
+	nan := float32(math.NaN())
+	if got := m.ColumnForX([]byte("hello"), nan); got != 0 {
+		t.Errorf("ColumnForX(NaN)=%d want 0", got)
+	}
+}
 
 func TestIsASCII(t *testing.T) {
 	cases := []struct {

@@ -2,8 +2,14 @@ package buffer
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 )
+
+// MaxLoadBytes caps the number of bytes Buffer.Load will read from
+// an io.Reader. Larger files return an error rather than risking
+// OOM from an unbounded io.ReadAll.
+const MaxLoadBytes = 1 << 28 // 256 MiB
 
 // Buffer is the document model: a slice of lines plus the single edit
 // choke point Apply. A Buffer always contains at least one line (the
@@ -20,10 +26,22 @@ func New() *Buffer {
 // Load reads r fully and splits on '\n'. Bytes are preserved verbatim;
 // no EOL normalization. A trailing newline produces a final empty line,
 // matching standard text-file semantics.
+//
+// Load caps the read at MaxLoadBytes and returns an error if r
+// would produce more. Callers that need to load larger files can
+// stream into a buffer manually.
 func Load(r io.Reader) (*Buffer, error) {
-	raw, err := io.ReadAll(r)
+	if r == nil {
+		return New(), nil
+	}
+	// +1 so we can detect over-limit reads.
+	limited := io.LimitReader(r, MaxLoadBytes+1)
+	raw, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, err
+	}
+	if len(raw) > MaxLoadBytes {
+		return nil, fmt.Errorf("buffer: input exceeds %d bytes", MaxLoadBytes)
 	}
 	return FromBytes(raw), nil
 }

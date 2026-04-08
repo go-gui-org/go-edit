@@ -28,6 +28,9 @@ type Measurer struct {
 // has no TextMeasurer (e.g. headless tests without a backend); callers
 // must guard.
 func New(w *gui.Window, style gui.TextStyle) *Measurer {
+	if w == nil {
+		return nil
+	}
 	tm := w.TextMeasurer()
 	if tm == nil {
 		return nil
@@ -53,7 +56,7 @@ func (m *Measurer) Style() gui.TextStyle { return m.style }
 // lineBytes. ASCII-only lines use the monospace fast path; any
 // non-ASCII byte falls back to go-glyph layout.
 func (m *Measurer) XForColumn(lineBytes []byte, byteCol int) float32 {
-	if byteCol <= 0 {
+	if m == nil || byteCol <= 0 {
 		return 0
 	}
 	if byteCol > len(lineBytes) {
@@ -76,7 +79,7 @@ func (m *Measurer) XForColumn(lineBytes []byte, byteCol int) float32 {
 // ColumnForX returns the byte column closest to x within lineBytes.
 // Returns the clamped column; never -1.
 func (m *Measurer) ColumnForX(lineBytes []byte, x float32) int {
-	if x <= 0 {
+	if m == nil || x != x || x <= 0 { // x != x traps NaN
 		return 0
 	}
 	if isASCII(lineBytes) {

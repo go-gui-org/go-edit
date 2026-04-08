@@ -67,16 +67,16 @@ Key types (proposed):
 Still open at this layer:
 - [ ] Gutter+text one canvas or two sharing scroll Y.
 
-### Phase 0 — Skeleton  ☐
+### Phase 0 — Skeleton  ☑
 
-- [ ] `go mod init github.com/mike-ward/go-edit`; replace directive to local
-      go-gui.
-- [ ] Package layout: `edit/`, `edit/buffer/`, `edit/highlight/`,
-      `edit/internal/`, `examples/basic/`.
-- [ ] CI: `go test ./...`, `go vet`, `golangci-lint` (config copied from
+- [x] `go mod init github.com/mike-ward/go-edit`; replace directive to local
+      go-gui / go-glyph.
+- [x] Package layout: `edit/`, `edit/buffer/`, `edit/highlight/`,
+      `edit/text/`, `edit/internal/`, `examples/basic/`.
+- [x] CI: `go test ./...`, `go vet`, `golangci-lint` (config copied from
       go-gui).
-- [ ] License: PolyForm Noncommercial 1.0.0 (match go-gui).
-- [ ] `go.mod`: `go 1.26.0` (match go-gui).
+- [x] License: PolyForm Noncommercial 1.0.0 (match go-gui).
+- [x] `go.mod`: `go 1.26.0` (match go-gui).
 
 Moved to Phase 1 (need a Buffer to exist first):
 
@@ -86,23 +86,40 @@ Moved to Phase 1 (need a Buffer to exist first):
 - Fuzz `Buffer.Apply` with arbitrary bytes incl. invalid UTF-8 + NULs.
 - Bench baseline file checked in (100k-line generated Go) for Phase 3.
 
-### Phase 1 — Buffer + minimal view  ☐
+### Phase 1 — Buffer + minimal view  ☑ (save deferred)
 
-- [ ] `Buffer` as per-line gap buffer (array of lines, each a gap buffer,
-      Vim-style). Decided over rope/piece-table: target docs ≤2 MB fit in
-      cache, IM render loop wants contiguous leaf bytes, line array gives
-      free line index + cache-friendly viewport iteration. Rope/piece-table
-      reserved as escape hatch if long-line or huge-file cases bite.
-- [ ] Line index; UTF-8 aware; grapheme-cluster column math via go-glyph
-      (direct) or go-gui re-export, whichever exposes shaping + metrics.
-- [ ] Internal `edit/text` package wrapping go-glyph: glyph-run cache,
-      measure, hit-test, fallback chain. Single choke point so the rest of
-      the editor never imports go-glyph directly.
-- [ ] `Editor()` factory rendering monospace text in a scroll container.
-- [ ] Single cursor, arrow keys, Home/End, PgUp/PgDn.
-- [ ] Insert/delete/Enter/Backspace.
-- [ ] Line-number gutter (toggleable).
-- [ ] Example: `examples/basic` — open file, edit, save.
+- [x] `Buffer` as per-line byte-slice store (gap buffer deferred until
+      bench pressure — baseline recorded in `buffer_bench_test.go`).
+- [x] Line index; UTF-8 aware. Grapheme-cluster movement deferred to
+      Phase 2; Phase 1 moves by byte.
+- [x] Internal `edit/text` package wrapping `gui.TextMeasurer` (not
+      go-glyph directly — the measurer already wraps it, and OnDraw has
+      no window access, so the indirection is cheaper).
+- [x] `Editor()` factory rendering monospace text.
+- [x] Single cursor, arrow keys, Home/End, PgUp/PgDn.
+- [x] Insert/delete/Enter/Backspace.
+- [x] Line-number gutter (toggleable).
+- [x] Example: `examples/basic` — open file, edit (no save).
+- [x] Headless driver tests via `edit/internal/fakewin`.
+- [x] Buffer benchmarks (`BenchmarkFromBytes100k`, `BenchmarkLoad100k`,
+      `BenchmarkLineIter100k`, `BenchmarkRandomEdits10k`).
+- [ ] File save — deferred to Phase 1.2.
+
+Architectural deviations from initial plan:
+
+- Editor does NOT use go-gui's `Column(IDScroll)` virtualization.
+  DrawCanvas caches its full draw output keyed by `(ID, Version)`;
+  virtualizing 100k lines through that cache is a dead end. The
+  Editor instead owns its own `ScrollY` in `editorState` and sizes
+  the DrawCanvas to the viewport. `ID: ""` bypasses the cache.
+- `edit/text` wraps `gui.TextMeasurer`, not go-glyph directly. The
+  go-glyph import is type-only (`glyph.Layout` is the return type
+  of `TextMeasurer.LayoutText`).
+- Golden-frame tests skipped. `DrawContext`'s draw-op accumulators
+  are unexported; an external test can't inspect them. Revisit when
+  an upstream `Inspect()` accessor can be pushed.
+- Upstream change: pushed `(*Window).TextMeasurer()` getter to
+  go-gui — one-line mirror of `SetTextMeasurer`.
 
 ### Phase 1.2 — File I/O  ☐
 
