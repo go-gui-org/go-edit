@@ -1,0 +1,34 @@
+version: "2"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - gocyclo
+    - modernize
+    - unused
+    - revive
+  settings:
+    gocyclo:
+      min-complexity: 30
+    revive:
+      rules:
+        - name: exported
+        - name: if-return
+        - name: error-strings
+        - name: unexported-return
+  exclusions:
+    generated: lax
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gocyclo
+      - path: _test\.go
+        text: SA5011
