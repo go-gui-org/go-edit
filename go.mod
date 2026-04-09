@@ -2,14 +2,9 @@ module github.com/mike-ward/go-edit
 
 go 1.26.0
 
-replace (
-	github.com/mike-ward/go-glyph => ../go-glyph
-	github.com/mike-ward/go-gui => ../go-gui
-)
-
 require (
 	github.com/mike-ward/go-glyph v1.6.4
-	github.com/mike-ward/go-gui v0.9.1
+	github.com/mike-ward/go-gui v0.9.2
 )
 
 require (

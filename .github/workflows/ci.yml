@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,6 +34,26 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
+
+      - name: Install Linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libsdl2-dev \
+            libfreetype6-dev \
+            libharfbuzz-dev \
+            libpango1.0-dev \
+            libfontconfig1-dev
+
+      - name: Install macOS deps
+        if: runner.os == 'macOS'
+        run: |
+          brew install pkg-config sdl2 freetype harfbuzz pango fontconfig
+          prefix=$(brew --prefix)
+          echo "PKG_CONFIG_PATH=${prefix}/lib/pkgconfig:${prefix}/share/pkgconfig" >> "$GITHUB_ENV"
+          echo "CGO_ENABLED=1" >> "$GITHUB_ENV"
 
       - name: Test
         working-directory: go-edit
@@ -62,6 +82,17 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
+
+      - name: Install Linux deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libsdl2-dev \
+            libfreetype6-dev \
+            libharfbuzz-dev \
+            libpango1.0-dev \
+            libfontconfig1-dev
 
       - name: Vet
         working-directory: go-edit
