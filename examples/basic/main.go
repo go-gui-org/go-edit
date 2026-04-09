@@ -48,6 +48,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	buf.EnableUndo(nil)
 
 	view := func(w *gui.Window) gui.View {
 		return edit.Editor(edit.EditorCfg{

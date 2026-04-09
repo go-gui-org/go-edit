@@ -47,5 +47,12 @@ var DefaultKeymap = &Keymap{
 		// ---- indent ----
 		{Key: gui.KeyTab, ActionID: "edit.indent"},
 		{Key: gui.KeyTab, Modifiers: gui.ModShift, ActionID: "edit.dedent"},
+
+		// ---- undo / redo ----
+		{Key: gui.KeyZ, Modifiers: gui.ModCtrl, ActionID: "edit.undo"},
+		{Key: gui.KeyZ, Modifiers: gui.ModSuper, ActionID: "edit.undo"},
+		{Key: gui.KeyZ, Modifiers: gui.ModCtrl | gui.ModShift, ActionID: "edit.redo"},
+		{Key: gui.KeyZ, Modifiers: gui.ModSuper | gui.ModShift, ActionID: "edit.redo"},
+		{Key: gui.KeyY, Modifiers: gui.ModCtrl, ActionID: "edit.redo"},
 	},
 }

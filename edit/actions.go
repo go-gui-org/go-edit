@@ -126,7 +126,10 @@ var defaultActions = map[string]Action{
 	"edit.backspace": {
 		ID: "edit.backspace",
 		Execute: func(_ EditorCfg, st *editorState, buf *buffer.Buffer, _ *gui.Window) {
-			if deleteSelection(st, buf) {
+			if hasSelection(st) {
+				buf.BeginGroup()
+				deleteSelection(st, buf)
+				buf.EndGroup()
 				return
 			}
 			backspace(st, buf)
@@ -135,7 +138,10 @@ var defaultActions = map[string]Action{
 	"edit.delete": {
 		ID: "edit.delete",
 		Execute: func(_ EditorCfg, st *editorState, buf *buffer.Buffer, _ *gui.Window) {
-			if deleteSelection(st, buf) {
+			if hasSelection(st) {
+				buf.BeginGroup()
+				deleteSelection(st, buf)
+				buf.EndGroup()
 				return
 			}
 			deleteForward(st, buf)
@@ -144,7 +150,29 @@ var defaultActions = map[string]Action{
 	"edit.newline": {
 		ID: "edit.newline",
 		Execute: func(cfg EditorCfg, st *editorState, buf *buffer.Buffer, _ *gui.Window) {
+			buf.BeginGroup()
 			insertNewline(cfg, st, buf)
+			buf.EndGroup()
+		},
+	},
+	"edit.undo": {
+		ID: "edit.undo",
+		Execute: func(_ EditorCfg, st *editorState, buf *buffer.Buffer, _ *gui.Window) {
+			r := buf.Undo()
+			if r.OK {
+				st.Cursor = r.Cursor.Cursor
+				st.Anchor = r.Cursor.Anchor
+			}
+		},
+	},
+	"edit.redo": {
+		ID: "edit.redo",
+		Execute: func(_ EditorCfg, st *editorState, buf *buffer.Buffer, _ *gui.Window) {
+			r := buf.Redo()
+			if r.OK {
+				st.Cursor = r.Cursor.Cursor
+				st.Anchor = r.Cursor.Anchor
+			}
 		},
 	},
 
@@ -167,7 +195,9 @@ var defaultActions = map[string]Action{
 				return
 			}
 			w.SetClipboard(buf.TextInRange(selectionRange(st)))
+			buf.BeginGroup()
 			deleteSelection(st, buf)
+			buf.EndGroup()
 		},
 	},
 	"edit.paste": {
@@ -182,6 +212,7 @@ var defaultActions = map[string]Action{
 			if len(text) > buffer.MaxLoadBytes {
 				text = text[:buffer.MaxLoadBytes]
 			}
+			buf.BeginGroup()
 			deleteSelection(st, buf)
 			pos := st.Cursor
 			c := buf.Apply(buffer.Edit{
@@ -189,6 +220,7 @@ var defaultActions = map[string]Action{
 				NewBytes: []byte(text),
 			})
 			st.Cursor = c.AppliedRange.End
+			buf.EndGroup()
 		},
 	},
 

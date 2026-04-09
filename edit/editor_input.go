@@ -46,6 +46,11 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 			invalidateSent = true
 		}
 
+		// Sync tab width from buffer indent config each frame.
+		if tw := cfg.Buffer.Props.IndentStyle.Width; tw > 0 {
+			st.Measurer.TabWidth = tw
+		}
+
 		lh := st.Measurer.LineHeight()
 		advance := st.Measurer.Advance()
 
@@ -109,6 +114,14 @@ func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *g
 		}
 
 		st := loadState(w, cfg.IDFocus)
+
+		// Record cursor before edit for undo (skip for undo/redo
+		// themselves — they restore cursor from their own records).
+		if isEditAction(actionID) && actionID != "edit.undo" &&
+			actionID != "edit.redo" {
+			cfg.Buffer.SetUndoCursor(st.Cursor, st.Anchor)
+		}
+
 		action.Execute(cfg, &st, cfg.Buffer, w)
 
 		if !action.PreservesAnchor {
@@ -136,12 +149,20 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 		n := utf8.EncodeRune(buf2[:], r)
 
 		st := loadState(w, cfg.IDFocus)
-		deleteSelection(&st, cfg.Buffer)
+		cfg.Buffer.SetUndoCursor(st.Cursor, st.Anchor)
+		grouped := hasSelection(&st)
+		if grouped {
+			cfg.Buffer.BeginGroup()
+			deleteSelection(&st, cfg.Buffer)
+		}
 		pos := st.Cursor
 		c := cfg.Buffer.Apply(buffer.Edit{
 			Range:    buffer.Range{Start: pos, End: pos},
 			NewBytes: buf2[:n],
 		})
+		if grouped {
+			cfg.Buffer.EndGroup()
+		}
 		st.Cursor = c.AppliedRange.End
 		clearSelection(&st)
 		st.DesiredCol = st.Cursor.ByteCol

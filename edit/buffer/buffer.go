@@ -22,6 +22,7 @@ type Buffer struct {
 	filters  []EditFilter
 	postEdit []PostEditFunc
 	marks    *MarkSet
+	undo     *undoStack
 }
 
 // New returns an empty buffer containing a single empty line.
@@ -45,7 +46,14 @@ func (b *Buffer) Marks() *MarkSet {
 }
 
 // MarkClean clears the dirty flag, typically after a successful save.
-func (b *Buffer) MarkClean() { b.dirty = false }
+// When undo is enabled, records the current stack depth so that
+// undoing back to this point clears dirty.
+func (b *Buffer) MarkClean() {
+	b.dirty = false
+	if b.undo != nil {
+		b.undo.cleanIdx = len(b.undo.undo)
+	}
+}
 
 // Load reads r fully, detects encoding and EOL convention,
 // transcodes to UTF-8, normalizes line endings to LF, and splits
@@ -186,13 +194,16 @@ func (b *Buffer) TextInRange(r Range) string {
 }
 
 // Apply is the single mutation choke point. Every edit routes through
-// here so EditFilters, marks, and undo (Phases 1.5, 3) can observe one
-// API. Returns a Change suitable for the undo stack.
+// here so EditFilters, marks, and undo can observe one API. Returns
+// a Change suitable for the undo stack.
 //
 // Apply panics on internal invariant break (e.g. negative line index).
 // It tolerates out-of-range columns by clamping. It never panics on
 // user input. Panic policy locked in Phase -1.
 func (b *Buffer) Apply(e Edit) Change {
+	// Clamp here so filters see valid coordinates. applyCore
+	// does not re-clamp on the Apply path (record=true) since
+	// the edit is already normalized.
 	e.Range = b.clampRange(e.Range)
 
 	// Run filter chain. Any rejection aborts the edit.
@@ -203,6 +214,23 @@ func (b *Buffer) Apply(e Edit) Change {
 		if f(b, &e) == FilterReject {
 			return Change{}
 		}
+	}
+
+	c := b.applyCore(e, true)
+	return c
+}
+
+// applyCore performs the buffer mutation and notifies post-edit
+// observers. When record is true the change is pushed to the undo
+// stack. Undo/redo replay calls with record=false to avoid
+// recursion and to skip filters (mechanical reversal, not user
+// input).
+//
+// Apply pre-clamps the edit; undo/redo replay edits are
+// constructed from known-valid ranges but clamped defensively.
+func (b *Buffer) applyCore(e Edit, record bool) Change {
+	if !record {
+		e.Range = b.clampRange(e.Range)
 	}
 
 	b.dirty = true
@@ -221,6 +249,13 @@ func (b *Buffer) Apply(e Edit) Change {
 		Applied:      e,
 		OldBytes:     old,
 		AppliedRange: Range{Start: e.Range.Start, End: endPos},
+	}
+
+	if record && b.undo != nil {
+		cur := b.undo.curBefore
+		hasCur := b.undo.hasCurBefore
+		b.undo.hasCurBefore = false
+		b.undo.record(c, cur, hasCur)
 	}
 
 	// Notify post-edit observers.

@@ -77,7 +77,8 @@ func editorOnDraw(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawContext) 
 			lineDecos := decosForLine(decos, i)
 			if len(lineDecos) == 0 {
 				if len(lineBytes) > 0 {
-					dc.Text(textX, y, string(lineBytes),
+					dc.Text(textX, y,
+						text.ExpandTabs(lineBytes, st.Measurer.TabWidth),
 						monoStyle)
 				}
 			} else {
@@ -152,8 +153,9 @@ func renderStyledLine(
 	if m == nil || len(lineBytes) == 0 {
 		return
 	}
-	advance := m.Advance()
+	originX := x
 	col := 0 // current byte offset
+	tw := m.TabWidth
 
 	for _, d := range decos {
 		startCol := d.Range.Start.ByteCol
@@ -165,25 +167,31 @@ func renderStyledLine(
 
 		// Emit unstyled gap before this token.
 		if col < startCol {
-			gap := string(lineBytes[col:startCol])
+			vcol := text.VisualCols(lineBytes, col, tw)
+			gap := text.ExpandTabsSpan(
+				lineBytes[col:startCol], vcol, tw)
 			dc.Text(x, y, gap, base)
-			x += float32(startCol-col) * advance
+			x = originX + m.XForColumn(lineBytes, startCol)
 		}
 
 		// Emit styled span.
-		span := string(lineBytes[startCol:endCol])
+		vcol := text.VisualCols(lineBytes, startCol, tw)
+		span := text.ExpandTabsSpan(
+			lineBytes[startCol:endCol], vcol, tw)
 		style := base
 		if d.FgColor != 0 {
 			style.Color = decoColorToGUI(d.FgColor)
 		}
 		dc.Text(x, y, span, style)
-		x += float32(endCol-startCol) * advance
 		col = endCol
+		x = originX + m.XForColumn(lineBytes, col)
 	}
 
 	// Emit trailing unstyled text.
 	if col < len(lineBytes) {
-		dc.Text(x, y, string(lineBytes[col:]), base)
+		vcol := text.VisualCols(lineBytes, col, tw)
+		dc.Text(x, y, text.ExpandTabsSpan(
+			lineBytes[col:], vcol, tw), base)
 	}
 }
 

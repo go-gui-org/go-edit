@@ -237,11 +237,36 @@ Architectural notes:
 - Auto-indent: `insertNewline` copies leading whitespace from current
   line; adds one indent level after `{`.
 
-### Phase 3 — Undo / redo  ☐
+### Phase 3 — Undo / redo  ☑
 
-- [ ] Linear undo stack of `Change` records; coalesce typing runs.
-- [ ] Redo on undo+edit clears forward stack.
-- [ ] Bench: 100k-line file, 10k random edits.
+- [x] Linear undo stack of `Change` records; coalesce typing runs.
+- [x] Redo on undo+edit clears forward stack.
+- [x] Bench: 100k-line file, 10k random edits.
+
+Architectural notes:
+
+- Undo stack lives on `Buffer` (`undoStack` in `edit/buffer/undo.go`).
+  `EnableUndo(now func() time.Time)` activates tracking; nil defaults
+  to `time.Now`. Without `EnableUndo`, all undo API calls are no-ops.
+- `applyCore(Edit, record bool) Change` is the internal mutation path.
+  `Apply` calls it with `record=true` (runs filters, records to undo).
+  `Undo`/`Redo` replay calls it with `record=false` (skips filters and
+  undo recording; post-edit observers still fire for highlighter
+  invalidation).
+- Compound edits: `BeginGroup()`/`EndGroup()` on Buffer. Nestable;
+  only the outermost `EndGroup` flushes accumulated changes into one
+  undo entry. Used by paste, cut, newline (deleteSelection + insert),
+  and multi-line indent/dedent.
+- Coalescing: adjacent single-char inserts (typing), backward deletes
+  (backspace), and forward deletes coalesce when within 500ms and no
+  newline involved. Timeout breaks coalesce chain.
+- Cursor restore: editor layer calls `SetUndoCursor(cursor, anchor)`
+  before each edit action. `Undo()` returns `cursorBefore`; `Redo()`
+  returns `cursorAfter`.
+- Dirty tracking: `MarkClean()` records `cleanIdx = len(undo)`.
+  `Undo`/`Redo` set `dirty = (len(undo) != cleanIdx)`.
+- Benchmarks: undo recording adds ~10k allocs over 10k random edits
+  (negligible). Replaying 10k undos takes ~21ms on 100k-line buffer.
 
 ### Phase 4 — Syntax highlighting  ☑ (pulled into Phase 1.5)
 

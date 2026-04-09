@@ -492,3 +492,185 @@ func TestDriver_ClickBeyondLineClamps(t *testing.T) {
 		t.Errorf("cursor=%+v want col 2", s.Cursor)
 	}
 }
+
+// ---------- Phase 3: undo / redo ----------
+
+func TestDriver_UndoRedoTyping(t *testing.T) {
+	buf := buffer.New()
+	buf.EnableUndo(nil)
+	d := newDriver(EditorCfg{
+		IDFocus: 30, Buffer: buf, Width: 400, Height: 200,
+	})
+	for _, r := range "hello" {
+		d.sendChar(r)
+	}
+	if buf.String() != "hello" {
+		t.Fatalf("after typing: %q", buf.String())
+	}
+	// Undo coalesced typing.
+	d.sendKeyMod(gui.KeyZ, gui.ModCtrl)
+	if buf.String() != "" {
+		t.Fatalf("after undo: %q", buf.String())
+	}
+	if d.state().Cursor != (buffer.Position{}) {
+		t.Errorf("cursor after undo: %+v", d.state().Cursor)
+	}
+	// Redo.
+	d.sendKeyMod(gui.KeyZ, gui.ModCtrl|gui.ModShift)
+	if buf.String() != "hello" {
+		t.Fatalf("after redo: %q", buf.String())
+	}
+}
+
+func TestDriver_UndoNewlineGroup(t *testing.T) {
+	buf := buffer.FromBytes([]byte("abc"))
+	buf.EnableUndo(nil)
+	d := newDriver(EditorCfg{
+		IDFocus: 31, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKey(gui.KeyEnd)
+	d.sendKey(gui.KeyEnter)
+	if buf.LineCount() != 2 {
+		t.Fatalf("lines=%d", buf.LineCount())
+	}
+	d.sendKeyMod(gui.KeyZ, gui.ModCtrl)
+	if buf.String() != "abc" {
+		t.Fatalf("after undo: %q", buf.String())
+	}
+}
+
+func TestDriver_UndoPaste(t *testing.T) {
+	buf := buffer.FromBytes([]byte("hello"))
+	buf.EnableUndo(nil)
+	d := newDriver(EditorCfg{
+		IDFocus: 32, Buffer: buf, Width: 400, Height: 200,
+	})
+	// Select "hel", copy, move to end, paste.
+	for range 3 {
+		d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	}
+	d.sendKeyMod(gui.KeyC, gui.ModCtrl)
+	d.sendKey(gui.KeyEnd)
+	d.sendKeyMod(gui.KeyV, gui.ModCtrl)
+	if buf.String() != "hellohel" {
+		t.Fatalf("after paste: %q", buf.String())
+	}
+	// Undo should revert the paste as one step.
+	d.sendKeyMod(gui.KeyZ, gui.ModCtrl)
+	if buf.String() != "hello" {
+		t.Fatalf("after undo paste: %q", buf.String())
+	}
+}
+
+func TestDriver_UndoIndentGroup(t *testing.T) {
+	buf := buffer.FromBytes([]byte("aaa\nbbb\nccc"))
+	buf.Props.IndentStyle.UseTabs = true
+	buf.Props.IndentStyle.Width = 4
+	buf.EnableUndo(nil)
+	d := newDriver(EditorCfg{
+		IDFocus: 33, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKeyMod(gui.KeyA, gui.ModCtrl) // select all
+	d.sendKey(gui.KeyTab)               // indent
+	if buf.String() != "\taaa\n\tbbb\n\tccc" {
+		t.Fatalf("after indent: %q", buf.String())
+	}
+	d.sendKeyMod(gui.KeyZ, gui.ModCtrl) // undo all at once
+	if buf.String() != "aaa\nbbb\nccc" {
+		t.Fatalf("after undo indent: %q", buf.String())
+	}
+}
+
+func TestDriver_UndoRedoReadOnlyBlocked(t *testing.T) {
+	buf := buffer.FromBytes([]byte("locked"))
+	buf.EnableUndo(nil)
+	d := newDriver(EditorCfg{
+		IDFocus: 34, Buffer: buf, Width: 400, Height: 200,
+		ReadOnly: true,
+	})
+	d.sendKeyMod(gui.KeyZ, gui.ModCtrl)
+	if buf.String() != "locked" {
+		t.Errorf("undo should be blocked in read-only")
+	}
+}
+
+func TestDriver_UndoCutGroup(t *testing.T) {
+	buf := buffer.FromBytes([]byte("abcdef"))
+	buf.EnableUndo(nil)
+	d := newDriver(EditorCfg{
+		IDFocus: 35, Buffer: buf, Width: 400, Height: 200,
+	})
+	// Select "abc", cut.
+	for range 3 {
+		d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	}
+	d.sendKeyMod(gui.KeyX, gui.ModCtrl)
+	if buf.String() != "def" {
+		t.Fatalf("after cut: %q", buf.String())
+	}
+	// Single undo restores.
+	d.sendKeyMod(gui.KeyZ, gui.ModCtrl)
+	if buf.String() != "abcdef" {
+		t.Fatalf("after undo cut: %q", buf.String())
+	}
+}
+
+func TestDriver_UndoDeleteSelectionGroup(t *testing.T) {
+	buf := buffer.FromBytes([]byte("hello world"))
+	buf.EnableUndo(nil)
+	d := newDriver(EditorCfg{
+		IDFocus: 36, Buffer: buf, Width: 400, Height: 200,
+	})
+	// Select "hello", press Delete.
+	for range 5 {
+		d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	}
+	d.sendKey(gui.KeyDelete)
+	if buf.String() != " world" {
+		t.Fatalf("after delete: %q", buf.String())
+	}
+	d.sendKeyMod(gui.KeyZ, gui.ModCtrl)
+	if buf.String() != "hello world" {
+		t.Fatalf("after undo: %q", buf.String())
+	}
+}
+
+func TestDriver_UndoDedentGroup(t *testing.T) {
+	buf := buffer.FromBytes([]byte("\taaa\n\tbbb\n\tccc"))
+	buf.Props.IndentStyle.UseTabs = true
+	buf.Props.IndentStyle.Width = 4
+	buf.EnableUndo(nil)
+	d := newDriver(EditorCfg{
+		IDFocus: 37, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKeyMod(gui.KeyA, gui.ModCtrl)         // select all
+	d.sendKeyMod(gui.KeyTab, gui.ModShift)       // dedent
+	if buf.String() != "aaa\nbbb\nccc" {
+		t.Fatalf("after dedent: %q", buf.String())
+	}
+	d.sendKeyMod(gui.KeyZ, gui.ModCtrl)
+	if buf.String() != "\taaa\n\tbbb\n\tccc" {
+		t.Fatalf("after undo dedent: %q", buf.String())
+	}
+}
+
+func TestDriver_UndoTypeOverSelection(t *testing.T) {
+	buf := buffer.FromBytes([]byte("hello"))
+	buf.EnableUndo(nil)
+	d := newDriver(EditorCfg{
+		IDFocus: 38, Buffer: buf, Width: 400, Height: 200,
+	})
+	// Select "hel", type 'X' to replace.
+	for range 3 {
+		d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	}
+	d.sendChar('X')
+	if buf.String() != "Xlo" {
+		t.Fatalf("after type over: %q", buf.String())
+	}
+	// Single undo should restore "hello" (grouped).
+	d.sendKeyMod(gui.KeyZ, gui.ModCtrl)
+	if buf.String() != "hello" {
+		t.Fatalf("after undo type-over: %q", buf.String())
+	}
+}

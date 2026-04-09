@@ -55,6 +55,7 @@ func indentAction(st *editorState, buf *buffer.Buffer) {
 
 	sel := selectionRange(st)
 	// Iterate last line → first to avoid invalidating positions.
+	buf.BeginGroup()
 	for li := sel.End.Line; li >= sel.Start.Line; li-- {
 		// Skip the last line if cursor is at col 0 (not really
 		// part of the selection content).
@@ -67,6 +68,7 @@ func indentAction(st *editorState, buf *buffer.Buffer) {
 			NewBytes: unit,
 		})
 	}
+	buf.EndGroup()
 
 	// Adjust anchor/cursor columns on affected lines.
 	w := len(unit)
@@ -88,6 +90,7 @@ func dedentAction(st *editorState, buf *buffer.Buffer) {
 	}
 
 	sel := selectionRange(st)
+	buf.BeginGroup()
 	for li := sel.End.Line; li >= sel.Start.Line; li-- {
 		if li == sel.End.Line && sel.End.ByteCol == 0 && li > sel.Start.Line {
 			continue
@@ -106,6 +109,7 @@ func dedentAction(st *editorState, buf *buffer.Buffer) {
 			}
 		}
 	}
+	buf.EndGroup()
 }
 
 // dedentLine removes one indent unit from the start of line li.
