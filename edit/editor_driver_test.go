@@ -17,6 +17,7 @@ type driver struct {
 	key   func(*gui.Layout, *gui.Event, *gui.Window)
 	char  func(*gui.Layout, *gui.Event, *gui.Window)
 	wheel func(*gui.Layout, *gui.Event, *gui.Window)
+	click func(*gui.Layout, *gui.Event, *gui.Window)
 	w     *gui.Window
 	ly    *gui.Layout
 }
@@ -30,6 +31,7 @@ func newDriver(cfg EditorCfg) *driver {
 		key:   editorOnKeyDown(cfg, frame),
 		char:  editorOnChar(cfg, frame),
 		wheel: editorOnMouseScroll(cfg, frame),
+		click: editorOnClick(cfg, frame),
 		w:     fakewin.New(),
 		ly:    &gui.Layout{},
 	}
@@ -42,6 +44,16 @@ func (d *driver) tick() { d.amend(d.ly, d.w) }
 func (d *driver) sendKey(code gui.KeyCode) {
 	d.tick()
 	d.key(d.ly, fakewin.NewKeyEvent(code, 0), d.w)
+}
+
+func (d *driver) sendKeyMod(code gui.KeyCode, mods gui.Modifier) {
+	d.tick()
+	d.key(d.ly, fakewin.NewKeyEvent(code, mods), d.w)
+}
+
+func (d *driver) sendClick(x, y float32, mods gui.Modifier) {
+	d.tick()
+	d.click(d.ly, fakewin.NewClickEvent(x, y, mods), d.w)
 }
 
 func (d *driver) sendChar(r rune) {
@@ -197,5 +209,286 @@ func TestDriver_ReadOnlyBlocksEdits(t *testing.T) {
 	d.sendKey(gui.KeyEnter)
 	if buf.String() != "locked" {
 		t.Errorf("buffer=%q want unchanged", buf.String())
+	}
+}
+
+// ---------- Phase 2: selection ----------
+
+func TestDriver_ShiftRightExtendsSelection(t *testing.T) {
+	buf := buffer.FromBytes([]byte("abc"))
+	d := newDriver(EditorCfg{
+		IDFocus: 10, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	s := d.state()
+	if s.Anchor != (buffer.Position{}) {
+		t.Errorf("anchor=%+v want {0 0}", s.Anchor)
+	}
+	if s.Cursor != (buffer.Position{ByteCol: 2}) {
+		t.Errorf("cursor=%+v want {0 2}", s.Cursor)
+	}
+}
+
+func TestDriver_RightCollapsesSelection(t *testing.T) {
+	buf := buffer.FromBytes([]byte("abcd"))
+	d := newDriver(EditorCfg{
+		IDFocus: 11, Buffer: buf, Width: 400, Height: 200,
+	})
+	// Select "ab".
+	d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	// Right arrow collapses to end of selection.
+	d.sendKey(gui.KeyRight)
+	s := d.state()
+	if s.Cursor != (buffer.Position{ByteCol: 2}) {
+		t.Errorf("cursor=%+v want {0 2}", s.Cursor)
+	}
+	if s.Anchor != s.Cursor {
+		t.Errorf("selection not collapsed: anchor=%+v cursor=%+v",
+			s.Anchor, s.Cursor)
+	}
+}
+
+func TestDriver_LeftCollapsesSelectionToStart(t *testing.T) {
+	buf := buffer.FromBytes([]byte("abcd"))
+	d := newDriver(EditorCfg{
+		IDFocus: 12, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	d.sendKey(gui.KeyLeft)
+	s := d.state()
+	if s.Cursor != (buffer.Position{}) {
+		t.Errorf("cursor=%+v want {0 0}", s.Cursor)
+	}
+}
+
+func TestDriver_ShiftDownMultiLineSelection(t *testing.T) {
+	buf := buffer.FromBytes([]byte("abc\ndef\nghi"))
+	d := newDriver(EditorCfg{
+		IDFocus: 13, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKeyMod(gui.KeyDown, gui.ModShift)
+	s := d.state()
+	if s.Anchor != (buffer.Position{}) {
+		t.Errorf("anchor=%+v", s.Anchor)
+	}
+	if s.Cursor.Line != 1 {
+		t.Errorf("cursor=%+v", s.Cursor)
+	}
+}
+
+func TestDriver_TypeReplacesSelection(t *testing.T) {
+	buf := buffer.FromBytes([]byte("hello"))
+	d := newDriver(EditorCfg{
+		IDFocus: 14, Buffer: buf, Width: 400, Height: 200,
+	})
+	// Select "hel".
+	for range 3 {
+		d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	}
+	d.sendChar('X')
+	if buf.String() != "Xlo" {
+		t.Errorf("buffer=%q want Xlo", buf.String())
+	}
+}
+
+func TestDriver_BackspaceDeletesSelection(t *testing.T) {
+	buf := buffer.FromBytes([]byte("hello"))
+	d := newDriver(EditorCfg{
+		IDFocus: 15, Buffer: buf, Width: 400, Height: 200,
+	})
+	for range 3 {
+		d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	}
+	d.sendKey(gui.KeyBackspace)
+	if buf.String() != "lo" {
+		t.Errorf("buffer=%q want lo", buf.String())
+	}
+}
+
+func TestDriver_SelectAll(t *testing.T) {
+	buf := buffer.FromBytes([]byte("abc\ndef"))
+	d := newDriver(EditorCfg{
+		IDFocus: 16, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKeyMod(gui.KeyA, gui.ModCtrl)
+	s := d.state()
+	if s.Anchor != (buffer.Position{}) {
+		t.Errorf("anchor=%+v", s.Anchor)
+	}
+	if s.Cursor != (buffer.Position{Line: 1, ByteCol: 3}) {
+		t.Errorf("cursor=%+v", s.Cursor)
+	}
+}
+
+// ---------- Phase 2: clipboard ----------
+
+func TestDriver_CopyPasteRoundTrip(t *testing.T) {
+	buf := buffer.FromBytes([]byte("hello world"))
+	d := newDriver(EditorCfg{
+		IDFocus: 17, Buffer: buf, Width: 400, Height: 200,
+	})
+	// Select "hello".
+	for range 5 {
+		d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	}
+	d.sendKeyMod(gui.KeyC, gui.ModCtrl) // copy
+	d.sendKey(gui.KeyEnd)               // move to end
+	d.sendKeyMod(gui.KeyV, gui.ModCtrl) // paste
+	if buf.String() != "hello worldhello" {
+		t.Errorf("buffer=%q", buf.String())
+	}
+}
+
+func TestDriver_CutRemovesText(t *testing.T) {
+	buf := buffer.FromBytes([]byte("abcdef"))
+	d := newDriver(EditorCfg{
+		IDFocus: 18, Buffer: buf, Width: 400, Height: 200,
+	})
+	for range 3 {
+		d.sendKeyMod(gui.KeyRight, gui.ModShift)
+	}
+	d.sendKeyMod(gui.KeyX, gui.ModCtrl)
+	if buf.String() != "def" {
+		t.Errorf("buffer=%q want def", buf.String())
+	}
+	// Paste back.
+	d.sendKeyMod(gui.KeyV, gui.ModCtrl)
+	if buf.String() != "abcdef" {
+		t.Errorf("buffer=%q want abcdef", buf.String())
+	}
+}
+
+func TestDriver_CutNoSelectionIsNoop(t *testing.T) {
+	buf := buffer.FromBytes([]byte("abc"))
+	d := newDriver(EditorCfg{
+		IDFocus: 19, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKeyMod(gui.KeyX, gui.ModCtrl)
+	if buf.String() != "abc" {
+		t.Errorf("buffer=%q want abc", buf.String())
+	}
+}
+
+func TestDriver_PasteEmptyClipboard(t *testing.T) {
+	buf := buffer.FromBytes([]byte("abc"))
+	d := newDriver(EditorCfg{
+		IDFocus: 20, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKeyMod(gui.KeyV, gui.ModCtrl) // empty clipboard
+	if buf.String() != "abc" {
+		t.Errorf("buffer=%q want abc", buf.String())
+	}
+}
+
+// ---------- Phase 2: indent ----------
+
+func TestDriver_TabInsertsIndent(t *testing.T) {
+	buf := buffer.New()
+	buf.Props.IndentStyle.UseTabs = true
+	buf.Props.IndentStyle.Width = 4
+	d := newDriver(EditorCfg{
+		IDFocus: 21, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKey(gui.KeyTab)
+	if buf.String() != "\t" {
+		t.Errorf("buffer=%q want tab", buf.String())
+	}
+}
+
+func TestDriver_TabIndentsSelectedLines(t *testing.T) {
+	buf := buffer.FromBytes([]byte("aaa\nbbb\nccc"))
+	buf.Props.IndentStyle.UseTabs = true
+	buf.Props.IndentStyle.Width = 4
+	d := newDriver(EditorCfg{
+		IDFocus: 22, Buffer: buf, Width: 400, Height: 200,
+	})
+	// Select all 3 lines.
+	d.sendKeyMod(gui.KeyA, gui.ModCtrl)
+	d.sendKey(gui.KeyTab)
+	if buf.String() != "\taaa\n\tbbb\n\tccc" {
+		t.Errorf("buffer=%q", buf.String())
+	}
+}
+
+func TestDriver_ShiftTabDedents(t *testing.T) {
+	buf := buffer.FromBytes([]byte("\thello"))
+	d := newDriver(EditorCfg{
+		IDFocus: 23, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKeyMod(gui.KeyTab, gui.ModShift)
+	if buf.String() != "hello" {
+		t.Errorf("buffer=%q want hello", buf.String())
+	}
+}
+
+func TestDriver_DedentNoIndent(t *testing.T) {
+	buf := buffer.FromBytes([]byte("hello"))
+	d := newDriver(EditorCfg{
+		IDFocus: 24, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKeyMod(gui.KeyTab, gui.ModShift)
+	if buf.String() != "hello" {
+		t.Errorf("buffer=%q want hello (unchanged)", buf.String())
+	}
+}
+
+// ---------- Phase 2: auto-indent ----------
+
+func TestDriver_EnterAutoIndent(t *testing.T) {
+	buf := buffer.FromBytes([]byte("\thello"))
+	d := newDriver(EditorCfg{
+		IDFocus: 25, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKey(gui.KeyEnd)
+	d.sendKey(gui.KeyEnter)
+	if buf.String() != "\thello\n\t" {
+		t.Errorf("buffer=%q", buf.String())
+	}
+}
+
+func TestDriver_EnterAfterBraceAddsIndent(t *testing.T) {
+	buf := buffer.FromBytes([]byte("func() {"))
+	buf.Props.IndentStyle.UseTabs = true
+	buf.Props.IndentStyle.Width = 4
+	d := newDriver(EditorCfg{
+		IDFocus: 26, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKey(gui.KeyEnd)
+	d.sendKey(gui.KeyEnter)
+	if buf.String() != "func() {\n\t" {
+		t.Errorf("buffer=%q", buf.String())
+	}
+}
+
+// ---------- Phase 2: mouse ----------
+
+func TestDriver_ClickSetsCursor(t *testing.T) {
+	buf := buffer.FromBytes([]byte("abcdef"))
+	d := newDriver(EditorCfg{
+		IDFocus: 27, Buffer: buf, Width: 400, Height: 200,
+	})
+	// Click at x=24 (3 chars * 8px advance) on line 0.
+	d.sendClick(24, 0, 0)
+	s := d.state()
+	if s.Cursor.ByteCol != 3 {
+		t.Errorf("cursor=%+v want col 3", s.Cursor)
+	}
+	if s.Anchor != s.Cursor {
+		t.Errorf("selection not cleared")
+	}
+}
+
+func TestDriver_ClickBeyondLineClamps(t *testing.T) {
+	buf := buffer.FromBytes([]byte("ab"))
+	d := newDriver(EditorCfg{
+		IDFocus: 28, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendClick(400, 0, 0) // way past end of "ab"
+	s := d.state()
+	if s.Cursor.ByteCol != 2 {
+		t.Errorf("cursor=%+v want col 2", s.Cursor)
 	}
 }

@@ -7,8 +7,10 @@ import (
 )
 
 func mkState(line, col int) editorState {
+	pos := buffer.Position{Line: line, ByteCol: col}
 	return editorState{
-		Cursor:     buffer.Position{Line: line, ByteCol: col},
+		Cursor:     pos,
+		Anchor:     pos,
 		DesiredCol: col,
 	}
 }
@@ -140,7 +142,7 @@ func TestDeleteForwardAtEOFNoop(t *testing.T) {
 func TestInsertNewlineSplitsLine(t *testing.T) {
 	buf := mkBuf("hello")
 	st := mkState(0, 3)
-	insertNewline(&st, buf)
+	insertNewline(EditorCfg{Buffer: buf}, &st, buf)
 	if buf.String() != "hel\nlo" {
 		t.Errorf("content=%q", buf.String())
 	}

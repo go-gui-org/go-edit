@@ -141,3 +141,91 @@ func TestDriver_MouseScrollAbsurdDropped(t *testing.T) {
 			before, d.state().ScrollY)
 	}
 }
+
+// ---------- Phase 2 hardening ----------
+
+func TestHitTestPosition_NaNCoords(t *testing.T) {
+	buf := buffer.FromBytes([]byte("hello"))
+	d := newDriver(EditorCfg{
+		IDFocus: 202, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.tick()
+	nan := float32(math.NaN())
+	e := &gui.Event{MouseX: nan, MouseY: nan}
+	pos := hitTestPosition(e, d.frame, buf)
+	if pos.Line != 0 || pos.ByteCol != 0 {
+		t.Errorf("NaN coords → %+v, want {0 0}", pos)
+	}
+}
+
+func TestHitTestPosition_NegativeCoords(t *testing.T) {
+	buf := buffer.FromBytes([]byte("hello"))
+	d := newDriver(EditorCfg{
+		IDFocus: 203, Buffer: buf, Width: 400, Height: 200,
+	})
+	d.tick()
+	e := &gui.Event{MouseX: -100, MouseY: -100}
+	pos := hitTestPosition(e, d.frame, buf)
+	if pos.Line != 0 || pos.ByteCol != 0 {
+		t.Errorf("negative coords → %+v, want {0 0}", pos)
+	}
+}
+
+func TestHitTestPosition_NilMeasurer(t *testing.T) {
+	buf := buffer.FromBytes([]byte("hello"))
+	frame := &editorFrameData{
+		lineHeight: 16,
+		state:      editorState{Measurer: nil},
+	}
+	e := &gui.Event{MouseX: 10, MouseY: 10}
+	pos := hitTestPosition(e, frame, buf)
+	if pos.Line != 0 || pos.ByteCol != 0 {
+		t.Errorf("nil measurer → %+v, want {0 0}", pos)
+	}
+}
+
+func TestIndentUnit_HugeWidth(t *testing.T) {
+	u := indentUnit(buffer.IndentStyle{UseTabs: false, Width: 1 << 20})
+	if len(u) > maxIndentWidth {
+		t.Errorf("len=%d exceeds cap %d", len(u), maxIndentWidth)
+	}
+}
+
+func TestWordBoundsAtByte_NegativeCol(t *testing.T) {
+	s, e := wordBoundsAtByte([]byte("hello"), -5)
+	if s < 0 || e < 0 || e > 5 {
+		t.Errorf("[%d,%d) out of range", s, e)
+	}
+}
+
+func TestDrawSelectionBg_NilMeasurer(t *testing.T) {
+	// Must not panic.
+	sel := buffer.Range{
+		Start: buffer.Position{Line: 0, ByteCol: 0},
+		End:   buffer.Position{Line: 0, ByteCol: 3},
+	}
+	drawSelectionBg(nil, sel, 0, []byte("hello"),
+		0, 0, 16, nil, gui.Color{})
+}
+
+func TestClickBeyondBuffer(t *testing.T) {
+	buf := buffer.FromBytes([]byte("ab"))
+	d := newDriver(EditorCfg{
+		IDFocus: 204, Buffer: buf, Width: 400, Height: 200,
+	})
+	// Click way below the buffer (Y beyond last line).
+	d.sendClick(0, 5000, 0)
+	s := d.state()
+	if s.Cursor.Line != 0 {
+		t.Errorf("cursor line=%d want 0 (single-line buffer)", s.Cursor.Line)
+	}
+}
+
+func TestDedentLine_HugeWidth(t *testing.T) {
+	buf := buffer.FromBytes([]byte("    hello"))
+	buf.Props.IndentStyle.Width = 1 << 20
+	removed := dedentLine(buf, 0)
+	if removed > maxIndentWidth {
+		t.Errorf("removed=%d exceeds cap %d", removed, maxIndentWidth)
+	}
+}

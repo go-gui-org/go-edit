@@ -6,7 +6,7 @@ import (
 )
 
 // ActionFunc is the implementation of a named editor action.
-type ActionFunc func(cfg EditorCfg, st *editorState, buf *buffer.Buffer)
+type ActionFunc func(cfg EditorCfg, st *editorState, buf *buffer.Buffer, w *gui.Window)
 
 // Action bundles an action ID with its implementation and
 // metadata controlling post-action behavior.
@@ -17,6 +17,11 @@ type Action struct {
 	// for vertical movement (e.g. Up/Down). Most actions reset
 	// DesiredCol; only vertical movement actions set this.
 	PreservesDesiredCol bool
+	// PreservesAnchor, when true, keeps the selection anchor in
+	// place after the action executes. Selection-extending actions
+	// (select.*) set this. All other actions auto-set
+	// Anchor = Cursor after execution.
+	PreservesAnchor bool
 }
 
 // Binding maps a key chord to an action ID.

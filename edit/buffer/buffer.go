@@ -178,6 +178,13 @@ func (b *Buffer) Bytes() []byte {
 // String returns the full buffer as a string. Testing only — allocates.
 func (b *Buffer) String() string { return string(b.Bytes()) }
 
+// TextInRange returns the text in the given range as a string.
+// The range is clamped to valid coordinates.
+func (b *Buffer) TextInRange(r Range) string {
+	r = b.clampRange(r)
+	return string(b.bytesInRange(r))
+}
+
 // Apply is the single mutation choke point. Every edit routes through
 // here so EditFilters, marks, and undo (Phases 1.5, 3) can observe one
 // API. Returns a Change suitable for the undo stack.

@@ -206,13 +206,36 @@ Architectural notes:
   measurer. `decosForLine` guards negative line index.
   `Highlighter.OnEdit` callback reads invalidate func under mutex.
 
-### Phase 2 — Selection + clipboard  ☐
+### Phase 2 — Selection + clipboard  ☑
 
-- [ ] Shift+arrow selection; mouse drag selection; double-click word; triple
+- [x] Shift+arrow selection; mouse drag selection; double-click word; triple
       line.
-- [ ] Cut/copy/paste via go-gui clipboard.
-- [ ] Tab / Shift-Tab indent (selection-aware).
-- [ ] Auto-indent on Enter.
+- [x] Cut/copy/paste via go-gui clipboard.
+- [x] Tab / Shift-Tab indent (selection-aware).
+- [x] Auto-indent on Enter.
+
+Architectural notes:
+
+- Selection model: `Anchor` field added to `editorState`. Selection exists
+  when `Anchor != Cursor`. `PreservesAnchor` flag on `Action` controls
+  whether the dispatch auto-collapses selection after action execution.
+  Selection-extending actions (`select.*`) set this flag; all others
+  auto-set `Anchor = Cursor`.
+- Selection rendering: drawn directly in `editorOnDraw` as background
+  rects per visible line (not via `DecoBackground` — selection is
+  transient UI state, not a document decoration).
+- Mouse selection: `OnClick` fires on mouse-down; single-click sets
+  cursor, starts `MouseLock` drag. Double-click selects word via
+  `wordBoundsAtByte`. Triple-click selects line. Click count tracked
+  with 400ms threshold in `editorState`.
+- Clipboard: `ActionFunc` extended with `*gui.Window` parameter to
+  access `GetClipboard`/`SetClipboard`. Both `ModCtrl` and `ModSuper`
+  bindings registered for cross-platform support.
+- Indent: uses `buf.Props.IndentStyle` (from Phase 1.2 detect). Multi-line
+  indent iterates last→first to avoid position invalidation. Dedent
+  removes one tab or up to Width spaces from line start.
+- Auto-indent: `insertNewline` copies leading whitespace from current
+  line; adds one indent level after `{`.
 
 ### Phase 3 — Undo / redo  ☐
 

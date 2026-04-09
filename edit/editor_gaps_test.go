@@ -153,7 +153,7 @@ func TestDeleteForward_EmptyBufferNoop(t *testing.T) {
 func TestInsertNewline_AtLineStart(t *testing.T) {
 	buf := mkBuf("hello")
 	st := mkState(0, 0)
-	insertNewline(&st, buf)
+	insertNewline(EditorCfg{Buffer: buf}, &st, buf)
 	if buf.String() != "\nhello" {
 		t.Errorf("content=%q", buf.String())
 	}
@@ -165,7 +165,7 @@ func TestInsertNewline_AtLineStart(t *testing.T) {
 func TestInsertNewline_AtLineEnd(t *testing.T) {
 	buf := mkBuf("hello")
 	st := mkState(0, 5)
-	insertNewline(&st, buf)
+	insertNewline(EditorCfg{Buffer: buf}, &st, buf)
 	if buf.String() != "hello\n" {
 		t.Errorf("content=%q", buf.String())
 	}

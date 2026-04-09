@@ -15,6 +15,9 @@ import (
 // isEditAction reports whether an action ID is a mutating action
 // that should be blocked in read-only mode.
 func isEditAction(id string) bool {
+	if id == "edit.copy" {
+		return false
+	}
 	return strings.HasPrefix(id, "edit.")
 }
 
@@ -77,13 +80,17 @@ func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *g
 		stack.Push(km)
 	}
 
-	actions := make(map[string]Action, len(defaultActions)+2)
+	actions := make(map[string]Action, len(defaultActions)+6)
 	maps.Copy(actions, defaultActions)
 	// Page actions need frame for viewport height.
-	pu := pageUpAction(cfg, frame)
-	pd := pageDownAction(cfg, frame)
-	actions[pu.ID] = pu
-	actions[pd.ID] = pd
+	for _, a := range []Action{
+		pageUpAction(cfg, frame),
+		pageDownAction(cfg, frame),
+		selectPageUpAction(cfg, frame),
+		selectPageDownAction(cfg, frame),
+	} {
+		actions[a.ID] = a
+	}
 	maps.Copy(actions, cfg.Actions)
 
 	return func(layout *gui.Layout, e *gui.Event, w *gui.Window) {
@@ -102,8 +109,11 @@ func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *g
 		}
 
 		st := loadState(w, cfg.IDFocus)
-		action.Execute(cfg, &st, cfg.Buffer)
+		action.Execute(cfg, &st, cfg.Buffer, w)
 
+		if !action.PreservesAnchor {
+			st.Anchor = st.Cursor
+		}
 		if !action.PreservesDesiredCol {
 			st.DesiredCol = st.Cursor.ByteCol
 		}
@@ -126,12 +136,14 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 		n := utf8.EncodeRune(buf2[:], r)
 
 		st := loadState(w, cfg.IDFocus)
+		deleteSelection(&st, cfg.Buffer)
 		pos := st.Cursor
 		c := cfg.Buffer.Apply(buffer.Edit{
 			Range:    buffer.Range{Start: pos, End: pos},
 			NewBytes: buf2[:n],
 		})
 		st.Cursor = c.AppliedRange.End
+		clearSelection(&st)
 		st.DesiredCol = st.Cursor.ByteCol
 		ensureCursorVisible(&st, frame, cfg.Height)
 		storeState(w, cfg.IDFocus, st)
@@ -233,13 +245,28 @@ func deleteForward(st *editorState, buf *buffer.Buffer) {
 	_ = buf.Apply(buffer.Edit{Range: buffer.Range{Start: pos, End: end}})
 }
 
-func insertNewline(st *editorState, buf *buffer.Buffer) {
+func insertNewline(cfg EditorCfg, st *editorState, buf *buffer.Buffer) {
+	deleteSelection(st, buf)
 	pos := st.Cursor
+	line := buf.Line(pos.Line)
+
+	// Auto-indent: copy leading whitespace from current line.
+	indent := leadingWhitespace(line)
+	// Open-brace heuristic: add one indent level.
+	if pos.ByteCol > 0 && pos.ByteCol <= len(line) &&
+		line[pos.ByteCol-1] == '{' {
+		indent = append(indent, indentUnit(cfg.Buffer.Props.IndentStyle)...)
+	}
+
+	newBytes := make([]byte, 0, 1+len(indent))
+	newBytes = append(newBytes, '\n')
+	newBytes = append(newBytes, indent...)
 	c := buf.Apply(buffer.Edit{
 		Range:    buffer.Range{Start: pos, End: pos},
-		NewBytes: []byte{'\n'},
+		NewBytes: newBytes,
 	})
 	st.Cursor = c.AppliedRange.End
+	clearSelection(st)
 }
 
 // acceptChar reports whether r should be inserted into the buffer
@@ -258,22 +285,27 @@ func pageLines(frame *editorFrameData, viewportH float32) int {
 	return n
 }
 
-// clampCursor clamps st.Cursor to valid coordinates within buf.
-// Called from AmendLayout to recover gracefully from external
-// buffer mutations.
+// clampCursor clamps st.Cursor and st.Anchor to valid coordinates
+// within buf. Called from AmendLayout to recover gracefully from
+// external buffer mutations.
 func clampCursor(st *editorState, buf *buffer.Buffer) {
-	if st.Cursor.Line < 0 {
-		st.Cursor.Line = 0
+	clampPos(&st.Cursor, buf)
+	clampPos(&st.Anchor, buf)
+}
+
+func clampPos(p *buffer.Position, buf *buffer.Buffer) {
+	if p.Line < 0 {
+		p.Line = 0
 	}
-	if st.Cursor.Line >= buf.LineCount() {
-		st.Cursor.Line = buf.LineCount() - 1
+	if p.Line >= buf.LineCount() {
+		p.Line = buf.LineCount() - 1
 	}
-	ll := len(buf.Line(st.Cursor.Line))
-	if st.Cursor.ByteCol < 0 {
-		st.Cursor.ByteCol = 0
+	ll := len(buf.Line(p.Line))
+	if p.ByteCol < 0 {
+		p.ByteCol = 0
 	}
-	if st.Cursor.ByteCol > ll {
-		st.Cursor.ByteCol = ll
+	if p.ByteCol > ll {
+		p.ByteCol = ll
 	}
 }
 

@@ -18,10 +18,14 @@ const (
 	LineHeight float32 = 16
 )
 
-// New returns a headless window with the fake measurer installed.
+// New returns a headless window with the fake measurer and an
+// in-memory clipboard installed.
 func New() *gui.Window {
 	w := &gui.Window{}
 	w.SetTextMeasurer(&fakeMeasurer{})
+	var clip string
+	w.SetClipboardFn(func(s string) { clip = s })
+	w.SetClipboardGetFn(func() string { return clip })
 	return w
 }
 
@@ -48,6 +52,17 @@ func NewScrollEvent(deltaY float32) *gui.Event {
 	return &gui.Event{
 		Type:    gui.EventMouseScroll,
 		ScrollY: deltaY,
+	}
+}
+
+// NewClickEvent builds a mouse-down (click) event at the given
+// coordinates with optional modifiers.
+func NewClickEvent(x, y float32, mods gui.Modifier) *gui.Event {
+	return &gui.Event{
+		Type:      gui.EventMouseDown,
+		MouseX:    x,
+		MouseY:    y,
+		Modifiers: mods,
 	}
 }
 

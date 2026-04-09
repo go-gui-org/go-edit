@@ -66,6 +66,7 @@ func Editor(cfg EditorCfg) gui.View {
 		Height:        cfg.Height,
 		Clip:          true,
 		OnDraw:        editorOnDraw(cfg, frame),
+		OnClick:       editorOnClick(cfg, frame),
 		OnMouseScroll: editorOnMouseScroll(cfg, frame),
 	})
 

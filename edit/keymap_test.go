@@ -119,6 +119,8 @@ func TestDefaultKeymapCoversAllActions(t *testing.T) {
 	runtime := map[string]bool{
 		"cursor.pageup":   true,
 		"cursor.pagedown": true,
+		"select.pageup":   true,
+		"select.pagedown": true,
 	}
 	for _, b := range DefaultKeymap.Bindings {
 		if runtime[b.ActionID] {

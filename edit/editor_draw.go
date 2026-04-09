@@ -9,6 +9,9 @@ import (
 	"github.com/mike-ward/go-gui/gui"
 )
 
+// selectionBgColor is the background fill for selected text.
+var selectionBgColor = gui.RGBA(51, 144, 255, 96)
+
 // editorOnDraw returns a DrawCanvas OnDraw closure. The closure reads
 // per-frame data from frame (populated by AmendLayout) and renders
 // only the visible line range to dc.
@@ -47,6 +50,12 @@ func editorOnDraw(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawContext) 
 		}
 		slices.SortFunc(decos, decoCompare)
 
+		// Selection range (computed once for all lines).
+		var sel buffer.Range
+		hasSel := st.Anchor != st.Cursor
+		if hasSel {
+			sel = orderedRange(st.Anchor, st.Cursor)
+		}
 		for i := first; i <= last; i++ {
 			y := float32(i)*lh - st.ScrollY
 
@@ -58,6 +67,13 @@ func editorOnDraw(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawContext) 
 			}
 
 			lineBytes := buf.Line(i)
+
+			// Draw selection background before text.
+			if hasSel {
+				drawSelectionBg(dc, sel, i, lineBytes,
+					textX, y, lh, st.Measurer, selectionBgColor)
+			}
+
 			lineDecos := decosForLine(decos, i)
 			if len(lineDecos) == 0 {
 				if len(lineBytes) > 0 {
@@ -179,4 +195,55 @@ func decoColorToGUI(c uint32) gui.Color {
 		uint8((c>>8)&0xFF),
 		uint8(c&0xFF),
 	)
+}
+
+// drawSelectionBg draws the selection background for a single line.
+func drawSelectionBg(
+	dc *gui.DrawContext,
+	sel buffer.Range,
+	lineIdx int,
+	lineBytes []byte,
+	textX, y, lh float32,
+	m *text.Measurer,
+	color gui.Color,
+) {
+	if m == nil {
+		return
+	}
+	// Check if this line is inside the selection.
+	if lineIdx < sel.Start.Line || lineIdx > sel.End.Line {
+		return
+	}
+	lineLen := len(lineBytes)
+
+	startCol := 0
+	if lineIdx == sel.Start.Line {
+		startCol = sel.Start.ByteCol
+	}
+	endCol := lineLen
+	if lineIdx == sel.End.Line {
+		endCol = sel.End.ByteCol
+	}
+
+	if startCol > lineLen {
+		startCol = lineLen
+	}
+	if endCol > lineLen {
+		endCol = lineLen
+	}
+	if startCol >= endCol && lineIdx == sel.End.Line {
+		return
+	}
+
+	sx := textX + m.XForColumn(lineBytes, startCol)
+	var ex float32
+	if lineIdx < sel.End.Line {
+		// Line continues into next; extend one advance past EOL.
+		ex = textX + m.XForColumn(lineBytes, lineLen) + m.Advance()
+	} else {
+		ex = textX + m.XForColumn(lineBytes, endCol)
+	}
+	if ex > sx {
+		dc.FilledRect(sx, y, ex-sx, lh, color)
+	}
 }

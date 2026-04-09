@@ -7,6 +7,7 @@ import "github.com/mike-ward/go-gui/gui"
 var DefaultKeymap = &Keymap{
 	Name: "default",
 	Bindings: []Binding{
+		// ---- cursor movement ----
 		{Key: gui.KeyLeft, ActionID: "cursor.left"},
 		{Key: gui.KeyRight, ActionID: "cursor.right"},
 		{Key: gui.KeyUp, ActionID: "cursor.up"},
@@ -15,8 +16,36 @@ var DefaultKeymap = &Keymap{
 		{Key: gui.KeyEnd, ActionID: "cursor.end"},
 		{Key: gui.KeyPageUp, ActionID: "cursor.pageup"},
 		{Key: gui.KeyPageDown, ActionID: "cursor.pagedown"},
+
+		// ---- selection (shift+arrow) ----
+		{Key: gui.KeyLeft, Modifiers: gui.ModShift, ActionID: "select.left"},
+		{Key: gui.KeyRight, Modifiers: gui.ModShift, ActionID: "select.right"},
+		{Key: gui.KeyUp, Modifiers: gui.ModShift, ActionID: "select.up"},
+		{Key: gui.KeyDown, Modifiers: gui.ModShift, ActionID: "select.down"},
+		{Key: gui.KeyHome, Modifiers: gui.ModShift, ActionID: "select.home"},
+		{Key: gui.KeyEnd, Modifiers: gui.ModShift, ActionID: "select.end"},
+		{Key: gui.KeyPageUp, Modifiers: gui.ModShift, ActionID: "select.pageup"},
+		{Key: gui.KeyPageDown, Modifiers: gui.ModShift, ActionID: "select.pagedown"},
+
+		// ---- select all ----
+		{Key: gui.KeyA, Modifiers: gui.ModCtrl, ActionID: "select.all"},
+		{Key: gui.KeyA, Modifiers: gui.ModSuper, ActionID: "select.all"},
+
+		// ---- editing ----
 		{Key: gui.KeyBackspace, ActionID: "edit.backspace"},
 		{Key: gui.KeyDelete, ActionID: "edit.delete"},
 		{Key: gui.KeyEnter, ActionID: "edit.newline"},
+
+		// ---- clipboard (Ctrl + Super variants) ----
+		{Key: gui.KeyC, Modifiers: gui.ModCtrl, ActionID: "edit.copy"},
+		{Key: gui.KeyC, Modifiers: gui.ModSuper, ActionID: "edit.copy"},
+		{Key: gui.KeyX, Modifiers: gui.ModCtrl, ActionID: "edit.cut"},
+		{Key: gui.KeyX, Modifiers: gui.ModSuper, ActionID: "edit.cut"},
+		{Key: gui.KeyV, Modifiers: gui.ModCtrl, ActionID: "edit.paste"},
+		{Key: gui.KeyV, Modifiers: gui.ModSuper, ActionID: "edit.paste"},
+
+		// ---- indent ----
+		{Key: gui.KeyTab, ActionID: "edit.indent"},
+		{Key: gui.KeyTab, Modifiers: gui.ModShift, ActionID: "edit.dedent"},
 	},
 }
