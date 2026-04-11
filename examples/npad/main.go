@@ -611,6 +611,7 @@ func rebuildMenu(s *appState, w *gui.Window) {
 	gApp.SetNativeMenubar(gui.NativeMenubarCfg{
 		AppName:                 "npad",
 		SuppressSystemEditItems: true,
+		AboutActionID:           "help.about",
 		Menus: []gui.NativeMenuCfg{
 			{
 				Title: "File",
