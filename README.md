@@ -15,4 +15,4 @@ Strip before tagging.
 
 ## License
 
-PolyForm Noncommercial 1.0.0. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
