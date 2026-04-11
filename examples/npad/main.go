@@ -170,13 +170,7 @@ func windowTitle(s *appState) string {
 func createHighlighter(s *appState) *highlight.Highlighter {
 	styleName := chromaStyleNames[s.ChromaStyleIdx]
 	style := styles.Get(styleName)
-	h := highlight.New(s.Buf, "", style)
-	if h != nil {
-		et := edit.ThemeFromGUI()
-		overrides := edit.TokenOverridesFromTheme(et)
-		h.SetTokenOverrides(overrides)
-	}
-	return h
+	return highlight.New(s.Buf, "", style)
 }
 
 // ---- Main View ----
@@ -631,8 +625,8 @@ func rebuildMenu(s *appState, w *gui.Window) {
 	}
 
 	gApp.SetNativeMenubar(gui.NativeMenubarCfg{
-		AppName:         "npad",
-		IncludeEditMenu: true,
+		AppName:                 "npad",
+		SuppressSystemEditItems: true,
 		Menus: []gui.NativeMenuCfg{
 			{
 				Title: "File",
@@ -759,6 +753,7 @@ func handleMenuAction(id string, w *gui.Window) {
 			}
 			s.HL = createHighlighter(s)
 			rebuildMenu(s, w)
+			w.UpdateView(mainView)
 		}
 
 	// Recent files.
