@@ -31,6 +31,7 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 	var autoCloseRemove func()
 	var foldEditRemove func()
 	var visRowsEditRemove func()
+	var maxContentEditRemove func()
 
 	return func(layout *gui.Layout, w *gui.Window) {
 		st := loadState(w, cfg.IDFocus)
@@ -128,6 +129,35 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 		}
 
 		clampScroll(&st, cfg, frame, lh)
+
+		// Max content width (horizontal scroll, no-wrap only).
+		if !wrapActive && maxContentEditRemove == nil &&
+			st.Measurer != nil {
+			maxContentEditRemove = cfg.Buffer.OnEdit(
+				func(_ buffer.Change) {
+					frame.maxContentDirty = true
+				})
+		} else if wrapActive && maxContentEditRemove != nil {
+			maxContentEditRemove()
+			maxContentEditRemove = nil
+		}
+		if !wrapActive && st.Measurer != nil &&
+			(frame.maxContentDirty ||
+				frame.maxContentCacheLines != total) {
+			frame.maxContentW = computeMaxContentWidth(
+				cfg.Buffer, st.Measurer)
+			frame.maxContentCacheLines = total
+			frame.maxContentDirty = false
+		}
+
+		// Clamp horizontal scroll.
+		textAreaW := cfg.Width - gutterW - advance/2
+		if wrapActive || textAreaW <= 0 {
+			st.ScrollX = 0
+		} else {
+			maxScrollX := max(frame.maxContentW-textAreaW, 0)
+			clampScrollX(&st, maxScrollX)
+		}
 
 		// Search match refresh + observer.
 		searchEditRemove = syncSearchObserver(
@@ -342,23 +372,49 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 
 func editorOnMouseScroll(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.Event, *gui.Window) {
 	return func(layout *gui.Layout, e *gui.Event, w *gui.Window) {
-		// Guard NaN/Inf from a misbehaving backend.
 		dy := e.ScrollY
+		dx := e.ScrollX
+		// Shift+vertical scroll → horizontal scroll.
+		if e.Modifiers.Has(gui.ModShift) && dy != 0 && dx == 0 {
+			dx, dy = dy, 0
+		}
+		// Guard NaN/Inf.
 		if dy != dy || dy > 1e6 || dy < -1e6 {
+			dy = 0
+		}
+		if dx != dx || dx > 1e6 || dx < -1e6 {
+			dx = 0
+		}
+		if dy == 0 && dx == 0 {
 			return
 		}
 		st := loadState(w, cfg.IDFocus)
 		if st.HelpActive {
-			st.HelpScrollY -= dy * frame.lineHeight * 3
-			clampHelpScroll(&st, frame.helpEntries,
-				frame.lineHeight, cfg.Height)
+			if dy != 0 {
+				st.HelpScrollY -= dy * frame.lineHeight * 3
+				clampHelpScroll(&st, frame.helpEntries,
+					frame.lineHeight, cfg.Height)
+			}
 			storeState(w, cfg.IDFocus, st)
 			e.IsHandled = true
 			return
 		}
-		// Positive ScrollY means scroll up; invert for natural feel.
-		st.ScrollY -= dy * frame.lineHeight * 3
-		clampScroll(&st, cfg, frame, frame.lineHeight)
+		lh := frame.lineHeight
+		if dy != 0 {
+			st.ScrollY -= dy * lh * 3
+			clampScroll(&st, cfg, frame, lh)
+		}
+		if dx != 0 && !frame.wrapActive {
+			// padLeft = advance/2 so advance = padLeft*2.
+			adv := frame.padLeft * 2
+			if adv <= 0 {
+				adv = 8
+			}
+			st.ScrollX += dx * adv * 3
+			textAreaW := cfg.Width - frame.gutterW - frame.padLeft
+			maxScrollX := max(frame.maxContentW-textAreaW, 0)
+			clampScrollX(&st, maxScrollX)
+		}
 		storeState(w, cfg.IDFocus, st)
 		e.IsHandled = true
 	}
@@ -626,6 +682,37 @@ func computeStickyScroll(
 		cfg.Buffer, firstLogical, stickyMax, tw)
 }
 
+// clampScrollX keeps ScrollX in [0, maxScrollX]. Sanitizes NaN.
+func clampScrollX(st *editorState, maxScrollX float32) {
+	if st.ScrollX != st.ScrollX { // NaN
+		st.ScrollX = 0
+	}
+	if st.ScrollX < 0 {
+		st.ScrollX = 0
+	}
+	if st.ScrollX > maxScrollX {
+		st.ScrollX = maxScrollX
+	}
+}
+
+// computeMaxContentWidth measures the widest line in buf.
+func computeMaxContentWidth(buf *buffer.Buffer, m *text.Measurer) float32 {
+	if m == nil {
+		return 0
+	}
+	var maxW float32
+	for i := range buf.LineCount() {
+		line := buf.Line(i)
+		if len(line) == 0 {
+			continue
+		}
+		if w := m.XForColumn(line, len(line)); w > maxW {
+			maxW = w
+		}
+	}
+	return maxW
+}
+
 func clampScroll(st *editorState, cfg EditorCfg, frame *editorFrameData, lh float32) {
 	if st.ScrollY != st.ScrollY { // NaN
 		st.ScrollY = 0
@@ -683,5 +770,22 @@ func ensureCursorVisible(st *editorState, frame *editorFrameData, cfg EditorCfg)
 	}
 	if st.ScrollY < 0 {
 		st.ScrollY = 0
+	}
+
+	// Horizontal visibility (no-wrap only).
+	if !frame.wrapActive && st.Measurer != nil {
+		lb := cfg.Buffer.Line(p.Cursor.Line)
+		cursorX := st.Measurer.XForColumn(lb, p.Cursor.ByteCol)
+		textAreaW := cfg.Width - frame.gutterW - frame.padLeft
+		if textAreaW > 0 {
+			if cursorX < st.ScrollX {
+				st.ScrollX = cursorX
+			}
+			if cursorX > st.ScrollX+textAreaW {
+				st.ScrollX = cursorX - textAreaW
+			}
+		}
+		maxScrollX := max(frame.maxContentW-textAreaW, 0)
+		clampScrollX(st, maxScrollX)
 	}
 }

@@ -65,7 +65,7 @@ func editorOnDraw(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawContext) 
 			lastVis = visTot - 1
 		}
 
-		textX := frame.gutterW + frame.padLeft
+		textX := frame.gutterW + frame.padLeft - st.ScrollX
 
 		firstLogical, lastLogical := visRangeToLogical(
 			buf, st.Measurer, frame, folds,
@@ -173,6 +173,8 @@ func editorOnDraw(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawContext) 
 				monoStyle, &rt)
 		}
 
+		// Scrollbar overlay.
+		drawScrollbar(dc, cfg, frame, &rt)
 	}
 }
 
@@ -514,7 +516,7 @@ func drawStickyScroll(
 	if m == nil || lh <= 0 || len(frame.stickyLines) == 0 {
 		return
 	}
-	textX := frame.gutterW + frame.padLeft
+	textX := frame.gutterW + frame.padLeft - st.ScrollX
 	stickyH := float32(len(frame.stickyLines)) * lh
 
 	// Background.

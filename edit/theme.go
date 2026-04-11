@@ -29,6 +29,8 @@ type EditorTheme struct {
 	StickyBorder   gui.Color
 	CursorColor    gui.Color
 	GutterFg       gui.Color
+	ScrollbarThumb gui.Color
+	ScrollbarTrack gui.Color
 }
 
 // resolvedTheme holds per-frame resolved colors with fallbacks
@@ -44,6 +46,8 @@ type resolvedTheme struct {
 	stickyBorder   gui.Color
 	cursorColor    gui.Color
 	gutterFg       gui.Color
+	scrollbarThumb gui.Color
+	scrollbarTrack gui.Color
 }
 
 // resolveEditorTheme applies fallback defaults for any unset
@@ -60,6 +64,8 @@ func resolveEditorTheme(et EditorTheme) resolvedTheme {
 		stickyBorder:   resolveColor(et.StickyBorder, defaultStickyBorder),
 		cursorColor:    resolveColor(et.CursorColor, gui.Color{}),
 		gutterFg:       resolveColor(et.GutterFg, gui.Color{}),
+		scrollbarThumb: resolveColor(et.ScrollbarThumb, defaultScrollbarThumb),
+		scrollbarTrack: resolveColor(et.ScrollbarTrack, defaultScrollbarTrack),
 	}
 }
 
@@ -155,4 +161,6 @@ var (
 	defaultFindBarBorder  = gui.RGBA(80, 80, 80, 255)
 	defaultStickyBg       = gui.RGBA(30, 30, 30, 240)
 	defaultStickyBorder   = gui.RGBA(60, 60, 60, 255)
+	defaultScrollbarThumb = gui.RGBA(150, 150, 150, 120)
+	defaultScrollbarTrack = gui.RGBA(30, 30, 30, 80)
 )

@@ -31,6 +31,7 @@ type EditorCfg struct {
 	StickyScroll     bool
 	StickyScrollMax  int // 0 = use default (5)
 	ReadOnly         bool
+	Scrollbar        ScrollbarMode
 	LangConfigs      map[string]LangConfig // keyed by ".ext" or filename
 	Theme            EditorTheme
 	Decorations      []buffer.DecorationProvider

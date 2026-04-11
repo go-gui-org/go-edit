@@ -23,7 +23,7 @@ func hitTestPosition(
 	buf *buffer.Buffer,
 	scrollY float32,
 ) buffer.Position {
-	mx := e.MouseX - frame.gutterW - frame.padLeft
+	mx := e.MouseX - frame.gutterW - frame.padLeft + frame.state.ScrollX
 	my := e.MouseY
 
 	// Guard NaN / absurd values. Negative my is valid during
@@ -159,6 +159,27 @@ func editorOnClick(
 					return
 				}
 			}
+		}
+
+		// Vertical scrollbar click: jump to proportion or drag thumb.
+		if scrollbarVisible(cfg.Scrollbar, frame.totalVisRows,
+			frame.lineHeight, cfg.Height) &&
+			e.MouseX >= cfg.Width-scrollbarWidth {
+			handleScrollbarClick(cfg, frame, &st, e, w)
+			storeState(w, cfg.IDFocus, st)
+			e.IsHandled = true
+			return
+		}
+
+		// Horizontal scrollbar click.
+		textAreaW := cfg.Width - frame.gutterW - frame.padLeft
+		if scrollbarHorizVisible(cfg.Scrollbar, frame.wrapActive,
+			frame.maxContentW, textAreaW) &&
+			e.MouseY >= cfg.Height-scrollbarWidth {
+			handleHorizScrollbarClick(cfg, frame, &st, e, w)
+			storeState(w, cfg.IDFocus, st)
+			e.IsHandled = true
+			return
 		}
 
 		pos := hitTestPosition(e, frame, cfg.Buffer, -1)
@@ -307,6 +328,176 @@ func startDrag(cfg EditorCfg, frame *editorFrameData, w *gui.Window) {
 		},
 		MouseUp: func(_ *gui.Layout, _ *gui.Event, w *gui.Window) {
 			w.AnimationRemove(animIDEditorDragScroll)
+			w.MouseUnlock()
+		},
+	})
+}
+
+// handleScrollbarClick handles a click in the scrollbar track area.
+// Clicks on the thumb start a drag; clicks on the track jump-scroll
+// to the clicked proportion.
+func handleScrollbarClick(
+	cfg EditorCfg,
+	frame *editorFrameData,
+	st *editorState,
+	e *gui.Event,
+	w *gui.Window,
+) {
+	lh := frame.lineHeight
+	if lh <= 0 {
+		return
+	}
+	trackH := cfg.Height
+	thumbY, thumbH, hasThumb := scrollbarGeometry(
+		frame.totalVisRows, lh, cfg.Height, st.ScrollY, trackH)
+
+	clickY := e.MouseY
+
+	if hasThumb && clickY >= thumbY && clickY < thumbY+thumbH {
+		// Click on thumb: start drag.
+		startScrollbarDrag(cfg, frame, w, clickY-thumbY)
+	} else {
+		// Click on track: jump to that proportion of maxScroll.
+		contentH := float32(frame.totalVisRows) * lh
+		maxScroll := contentH - cfg.Height
+		if maxScroll > 0 {
+			st.ScrollY = clickY / trackH * maxScroll
+			clampScroll(st, cfg, frame, lh)
+		}
+	}
+}
+
+// handleHorizScrollbarClick handles a click in the horizontal
+// scrollbar track. Clicks on the thumb start a drag; other clicks
+// jump-scroll to the clicked proportion.
+func handleHorizScrollbarClick(
+	cfg EditorCfg,
+	frame *editorFrameData,
+	st *editorState,
+	e *gui.Event,
+	w *gui.Window,
+) {
+	textAreaW := cfg.Width - frame.gutterW - frame.padLeft
+	if textAreaW <= 0 {
+		return
+	}
+	contentW := frame.maxContentW
+	maxScrollX := max(contentW-textAreaW, 0)
+
+	vertVisible := scrollbarVisible(cfg.Scrollbar,
+		frame.totalVisRows, frame.lineHeight, cfg.Height)
+	trackX := frame.gutterW
+	trackW := cfg.Width - trackX
+	if vertVisible {
+		trackW -= scrollbarWidth
+	}
+	if trackW <= 0 {
+		return
+	}
+
+	thumbY, thumbH, hasThumb := scrollbarGeometry(
+		int(contentW), 1, textAreaW, st.ScrollX, trackW)
+	clickX := e.MouseX - trackX
+
+	if hasThumb && clickX >= thumbY && clickX < thumbY+thumbH {
+		startHorizScrollbarDrag(cfg, frame, w, clickX-thumbY)
+	} else {
+		if maxScrollX > 0 {
+			st.ScrollX = clickX / trackW * maxScrollX
+			clampScrollX(st, maxScrollX)
+		}
+	}
+}
+
+// startHorizScrollbarDrag initiates horizontal thumb drag via
+// MouseLock. dragOffset is click X relative to the thumb left edge.
+func startHorizScrollbarDrag(
+	cfg EditorCfg,
+	frame *editorFrameData,
+	w *gui.Window,
+	dragOffset float32,
+) {
+	w.MouseLock(gui.MouseLockCfg{
+		MouseMove: func(_ *gui.Layout, e *gui.Event, w *gui.Window) {
+			if !frame.valid {
+				return
+			}
+			lx := e.MouseX - frame.canvasOriginX - frame.gutterW
+			if lx != lx { // NaN
+				return
+			}
+			textAreaW := cfg.Width - frame.gutterW - frame.padLeft
+			if textAreaW <= 0 {
+				return
+			}
+			contentW := frame.maxContentW
+			maxScrollX := max(contentW-textAreaW, 0)
+			vertVisible := scrollbarVisible(cfg.Scrollbar,
+				frame.totalVisRows, frame.lineHeight, cfg.Height)
+			trackW := cfg.Width - frame.gutterW
+			if vertVisible {
+				trackW -= scrollbarWidth
+			}
+			_, thumbH, hasThumb := scrollbarGeometry(
+				int(contentW), 1, textAreaW, 0, trackW)
+			if !hasThumb || trackW <= 0 {
+				return
+			}
+			thumbRange := trackW - thumbH
+			if thumbRange <= 0 || maxScrollX <= 0 {
+				return
+			}
+			st := loadState(w, cfg.IDFocus)
+			st.ScrollX = (lx - dragOffset) / thumbRange * maxScrollX
+			clampScrollX(&st, maxScrollX)
+			storeState(w, cfg.IDFocus, st)
+		},
+		MouseUp: func(_ *gui.Layout, _ *gui.Event, w *gui.Window) {
+			w.MouseUnlock()
+		},
+	})
+}
+
+// startScrollbarDrag initiates thumb drag via MouseLock. dragOffset
+// is the click Y position relative to the top of the thumb.
+func startScrollbarDrag(
+	cfg EditorCfg,
+	frame *editorFrameData,
+	w *gui.Window,
+	dragOffset float32,
+) {
+	w.MouseLock(gui.MouseLockCfg{
+		MouseMove: func(_ *gui.Layout, e *gui.Event, w *gui.Window) {
+			if !frame.valid {
+				return
+			}
+			// MouseLock delivers window coords; convert to canvas-local.
+			ly := e.MouseY - frame.canvasOriginY
+			if ly != ly { // NaN
+				return
+			}
+			lh := frame.lineHeight
+			if lh <= 0 {
+				return
+			}
+			trackH := cfg.Height
+			_, thumbH, hasThumb := scrollbarGeometry(
+				frame.totalVisRows, lh, cfg.Height, 0, trackH)
+			if !hasThumb {
+				return
+			}
+			thumbRange := trackH - thumbH
+			contentH := float32(frame.totalVisRows) * lh
+			maxScroll := contentH - cfg.Height
+			if thumbRange <= 0 || maxScroll <= 0 {
+				return
+			}
+			st := loadState(w, cfg.IDFocus)
+			st.ScrollY = (ly - dragOffset) / thumbRange * maxScroll
+			clampScroll(&st, cfg, frame, lh)
+			storeState(w, cfg.IDFocus, st)
+		},
+		MouseUp: func(_ *gui.Layout, _ *gui.Event, w *gui.Window) {
 			w.MouseUnlock()
 		},
 	})

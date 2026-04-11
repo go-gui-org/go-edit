@@ -18,7 +18,8 @@ const capEdit = 64
 // window's StateMap across frames.
 type editorState struct {
 	Cursors  []CursorState // sorted by position; index 0 = primary
-	ScrollY  float32       // scroll offset in pixels
+	ScrollY  float32       // vertical scroll offset in pixels
+	ScrollX  float32       // horizontal scroll offset in pixels
 	Measurer *text.Measurer
 	Search   searchState
 
@@ -81,6 +82,11 @@ type editorFrameData struct {
 	visRowsCacheLines int
 	visRowsCacheFolds int
 	visRowsDirty      bool
+
+	// Max content width cache for horizontal scroll.
+	maxContentW         float32
+	maxContentCacheLines int
+	maxContentDirty     bool
 
 	// Canvas origin in window coordinates, captured on click
 	// for translating MouseLock drag coords to canvas-local.
