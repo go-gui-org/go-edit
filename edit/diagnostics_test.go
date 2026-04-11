@@ -33,7 +33,7 @@ func TestSquigglesForLineFiltered(t *testing.T) {
 
 	// drawSquiggles and drawGutterMarkers should not panic
 	// when measurer is nil (guard clause returns).
-	drawSquiggles(nil, decos, 0, []byte("hello"),
+	drawSquiggles(nil, nil, decos, 0, []byte("hello"),
 		0, 5, 0, 0, 16, nil)
 	drawGutterMarkers(nil, decos, 0,
 		40, 4, 0, 16, nil)

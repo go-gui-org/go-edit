@@ -21,7 +21,7 @@ func TestTokenizeGoLine(t *testing.T) {
 	}
 	defer h.Close()
 
-	decos := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0})
+	decos := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0}, nil)
 	if len(decos) == 0 {
 		t.Fatal("no decorations")
 	}
@@ -49,7 +49,7 @@ func TestTokensCoverFullLine(t *testing.T) {
 	}
 	defer h.Close()
 
-	decos := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0})
+	decos := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0}, nil)
 	// Verify tokens cover the line without gaps (allowing
 	// default-color tokens to be skipped).
 	_ = decos // coverage validated by non-panic
@@ -63,7 +63,7 @@ func TestEditInvalidatesTokens(t *testing.T) {
 	}
 	defer h.Close()
 
-	decos1 := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0})
+	decos1 := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0}, nil)
 
 	// Edit: change "1" to `"hello"`
 	buf.Apply(buffer.Edit{
@@ -74,7 +74,7 @@ func TestEditInvalidatesTokens(t *testing.T) {
 		NewBytes: []byte(`"hello"`),
 	})
 
-	decos2 := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0})
+	decos2 := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0}, nil)
 	// Should have different decorations (string literal vs int).
 	if len(decos1) == len(decos2) {
 		same := true
@@ -100,7 +100,7 @@ func TestViewportOnly(t *testing.T) {
 	defer h.Close()
 
 	// Request only line 2.
-	decos := h.Decorate(buffer.Viewport{FirstLine: 2, LastLine: 2})
+	decos := h.Decorate(buffer.Viewport{FirstLine: 2, LastLine: 2}, nil)
 	for _, d := range decos {
 		if d.Range.Start.Line != 2 {
 			t.Errorf("decoration on line %d, want 2",
@@ -118,7 +118,7 @@ func TestLanguageAutodetect(t *testing.T) {
 	}
 	defer h.Close()
 
-	decos := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0})
+	decos := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0}, nil)
 	if len(decos) == 0 {
 		t.Error("no decorations for Python")
 	}
@@ -133,7 +133,7 @@ func TestEmptyBuffer(t *testing.T) {
 	}
 	defer h.Close()
 
-	decos := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0})
+	decos := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0}, nil)
 	_ = decos // should not panic
 }
 
@@ -155,7 +155,7 @@ func TestSetTokenOverridesChangesDecoration(t *testing.T) {
 	defer h.Close()
 
 	// Get original "package" keyword color.
-	decos1 := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0})
+	decos1 := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0}, nil)
 	var origColor uint32
 	for _, d := range decos1 {
 		if d.Range.Start.ByteCol == 0 && d.Range.End.ByteCol == 7 {
@@ -170,7 +170,7 @@ func TestSetTokenOverridesChangesDecoration(t *testing.T) {
 		chroma.KeywordNamespace: override,
 	})
 
-	decos2 := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0})
+	decos2 := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0}, nil)
 	var newColor uint32
 	for _, d := range decos2 {
 		if d.Range.Start.ByteCol == 0 && d.Range.End.ByteCol == 7 {
@@ -202,7 +202,7 @@ func TestSetTokenOverridesNilClears(t *testing.T) {
 	// Clear overrides.
 	h.SetTokenOverrides(nil)
 
-	decos := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0})
+	decos := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 0}, nil)
 	for _, d := range decos {
 		if d.Range.Start.ByteCol == 0 && d.Range.End.ByteCol == 7 {
 			if d.FgColor == 0xFF0000FF {
@@ -222,7 +222,7 @@ func TestMultiLineToken(t *testing.T) {
 	}
 	defer h.Close()
 
-	decos := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 2})
+	decos := h.Decorate(buffer.Viewport{FirstLine: 0, LastLine: 2}, nil)
 	// Line 1 ("multiline") should have a decoration from the
 	// string literal spanning across lines.
 	found := false

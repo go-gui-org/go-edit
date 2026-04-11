@@ -102,6 +102,28 @@ type editorFrameData struct {
 
 	// Help entries (computed once, shared across closures).
 	helpEntries []helpEntry
+
+	// decoScratch is a per-frame reusable buffer passed into each
+	// DecorationProvider to avoid per-frame allocations. Truncated
+	// to zero length at the start of collectDecos each frame.
+	decoScratch []buffer.Decoration
+
+	// squigglePts is a reusable point buffer for drawSquiggles.
+	// Escape analysis always heap-allocates the arg to
+	// DrawContext.Polyline, so a per-frame owned buffer is the
+	// cheapest form (amortized across all squiggles in a frame).
+	squigglePts []float32
+
+	// Double-mount detection. The closure-shared frame struct
+	// cannot serve two mount sites correctly; if the same
+	// Editor(cfg) view is inserted into the layout tree twice,
+	// AmendLayout fires twice in the same frame with distinct
+	// *gui.Layout pointers. A match on frameSeq combined with a
+	// different layout pointer is a definite double-mount and
+	// panics. Sentinel 0 means "never seen." Tests that reuse
+	// the same *gui.Layout across driver ticks stay benign.
+	frameSeq   uint64
+	lastLayout uintptr
 }
 
 func loadState(w *gui.Window, id uint32) editorState {

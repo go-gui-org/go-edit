@@ -307,7 +307,7 @@ var defaultActions = map[string]Action{
 		PerCursor: true,
 		Execute: func(_ EditorCfg, st *editorState, buf *buffer.Buffer, _ *gui.Window) {
 			p := st.primary()
-			if m, ok := findMatchingBracket(buf, p.Cursor); ok {
+			if m, ok, _ := findMatchingBracket(buf, p.Cursor); ok {
 				p.Cursor = m
 			}
 		},
@@ -318,7 +318,7 @@ var defaultActions = map[string]Action{
 		PreservesAnchor: true,
 		Execute: func(_ EditorCfg, st *editorState, buf *buffer.Buffer, _ *gui.Window) {
 			p := st.primary()
-			if m, ok := findMatchingBracket(buf, p.Cursor); ok {
+			if m, ok, _ := findMatchingBracket(buf, p.Cursor); ok {
 				p.Cursor = m
 			}
 		},

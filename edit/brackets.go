@@ -44,16 +44,19 @@ func bracketAtCursor(buf *buffer.Buffer, pos buffer.Position) (byte, buffer.Posi
 }
 
 // findMatchingBracket scans from pos for the matching bracket.
-// Returns the position of the match and true, or zero and false.
+// Returns (match position, found, capped). capped=true means the
+// scan hit maxBracketScan before finding a match; callers rendering
+// a bracket-match highlight should suppress it in that case, while
+// cursor-movement callers can treat capped as simply "not found."
 func findMatchingBracket(
 	buf *buffer.Buffer, pos buffer.Position,
-) (buffer.Position, bool) {
+) (buffer.Position, bool, bool) {
 	if buf == nil {
-		return buffer.Position{}, false
+		return buffer.Position{}, false, false
 	}
 	b, bpos := bracketAtCursor(buf, pos)
 	if b == 0 {
-		return buffer.Position{}, false
+		return buffer.Position{}, false, false
 	}
 	match := bracketPairs[b]
 	if isOpener(b) {
@@ -68,18 +71,18 @@ func scanForward(
 	buf *buffer.Buffer,
 	pos buffer.Position,
 	open, close byte,
-) (buffer.Position, bool) {
+) (buffer.Position, bool, bool) {
 	depth := 1
 	scanned := 0
 	line := pos.Line
 	col := pos.ByteCol + 1 // skip the opener itself
 
-	for line < buf.LineCount() && scanned < maxBracketScan {
+	for line < buf.LineCount() {
 		lb := buf.Line(line)
 		for col < len(lb) {
 			scanned++
 			if scanned > maxBracketScan {
-				return buffer.Position{}, false
+				return buffer.Position{}, false, true
 			}
 			switch lb[col] {
 			case open:
@@ -89,7 +92,7 @@ func scanForward(
 				if depth == 0 {
 					return buffer.Position{
 						Line: line, ByteCol: col,
-					}, true
+					}, true, false
 				}
 			}
 			col++
@@ -97,7 +100,7 @@ func scanForward(
 		line++
 		col = 0
 	}
-	return buffer.Position{}, false
+	return buffer.Position{}, false, false
 }
 
 // scanBackward searches backward from pos for match.
@@ -105,13 +108,13 @@ func scanBackward(
 	buf *buffer.Buffer,
 	pos buffer.Position,
 	close, open byte,
-) (buffer.Position, bool) {
+) (buffer.Position, bool, bool) {
 	depth := 1
 	scanned := 0
 	line := pos.Line
 	col := pos.ByteCol - 1 // skip the closer itself; may be -1
 
-	for scanned < maxBracketScan {
+	for {
 		if col < 0 {
 			// Move to previous line.
 			line--
@@ -127,7 +130,7 @@ func scanBackward(
 		for col >= 0 {
 			scanned++
 			if scanned > maxBracketScan {
-				return buffer.Position{}, false
+				return buffer.Position{}, false, true
 			}
 			switch lb[col] {
 			case close:
@@ -137,11 +140,11 @@ func scanBackward(
 				if depth == 0 {
 					return buffer.Position{
 						Line: line, ByteCol: col,
-					}, true
+					}, true, false
 				}
 			}
 			col--
 		}
 	}
-	return buffer.Position{}, false
+	return buffer.Position{}, false, false
 }

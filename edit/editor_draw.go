@@ -75,7 +75,7 @@ func editorOnDraw(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawContext) 
 		firstLogical, lastLogical := visRangeToLogical(
 			buf, st.Measurer, frame, folds,
 			hasFolds, wrapOn, firstVis, lastVis)
-		decos := collectDecos(cfg, firstLogical, lastLogical)
+		decos := collectDecos(cfg, frame, firstLogical, lastLogical)
 		sels := buildSelInfos(st.Cursors)
 
 		foldStyle := gutterStyle
@@ -132,7 +132,7 @@ func editorOnDraw(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawContext) 
 					subStart, subEnd, i, textX, y,
 					decos, monoStyle, st.Measurer,
 					frame.gutterW)
-				drawSquiggles(dc, decos, i, lineBytes,
+				drawSquiggles(dc, frame, decos, i, lineBytes,
 					subStart, subEnd, textX, y, lh,
 					st.Measurer)
 
@@ -218,7 +218,7 @@ func visRangeToLogical(
 
 // collectDecos gathers decorations for the visible viewport.
 func collectDecos(
-	cfg EditorCfg, firstLine, lastLine int,
+	cfg EditorCfg, frame *editorFrameData, firstLine, lastLine int,
 ) []buffer.Decoration {
 	if firstLine < 0 {
 		firstLine = 0
@@ -226,12 +226,14 @@ func collectDecos(
 	if lastLine < firstLine {
 		lastLine = firstLine
 	}
-	var decos []buffer.Decoration
+	// Reuse the per-frame scratch buffer; providers append in place.
+	decos := frame.decoScratch[:0]
 	vp := buffer.Viewport{FirstLine: firstLine, LastLine: lastLine}
 	for _, dp := range cfg.Decorations {
-		decos = append(decos, dp.Decorate(vp)...)
+		decos = dp.Decorate(vp, decos)
 	}
 	slices.SortFunc(decos, decoCompare)
+	frame.decoScratch = decos
 	return decos
 }
 
@@ -978,9 +980,13 @@ func matchCountStr(ss *searchState) string {
 }
 
 // drawSquiggles draws wavy underlines for DecoSquiggle decos
-// on the given line, clipped to [subStart, subEnd).
+// on the given line, clipped to [subStart, subEnd). Reuses
+// frame.squigglePts as the point buffer to avoid a per-call
+// allocation — the slice passed to dc.Polyline always escapes
+// (opaque callee), so stack allocation is not achievable.
 func drawSquiggles(
 	dc *gui.DrawContext,
+	frame *editorFrameData,
 	decos []buffer.Decoration,
 	line int,
 	lineBytes []byte,
@@ -1029,12 +1035,15 @@ func drawSquiggles(
 		baseY := y + lh - 2     // just above bottom
 		width := ex - sx
 		steps := min(max(int(width/wl)+1, 2), 4096)
-		// Stack-alloc for typical case.
-		var ptsBuf [256]float32
 		n := steps * 2
+		// Grow (never shrink) the frame-scoped reuse buffer; the
+		// first frame allocates, subsequent frames reuse.
 		var pts []float32
-		if n <= len(ptsBuf) {
-			pts = ptsBuf[:n]
+		if frame != nil {
+			if cap(frame.squigglePts) < n {
+				frame.squigglePts = make([]float32, n)
+			}
+			pts = frame.squigglePts[:n]
 		} else {
 			pts = make([]float32, n)
 		}

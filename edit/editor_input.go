@@ -6,6 +6,7 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/mike-ward/go-edit/edit/buffer"
 	"github.com/mike-ward/go-edit/edit/text"
@@ -21,6 +22,33 @@ func isEditAction(id string) bool {
 	return strings.HasPrefix(id, "edit.")
 }
 
+// checkDoubleMount panics if the same Editor(cfg) view was inserted
+// into the layout tree twice in the same frame. Detection key is
+// (current frame counter, layout pointer): a match on frameSeq
+// combined with a distinct *gui.Layout pointer is a definite
+// double-mount. Same pointer + same counter is benign (the test
+// driver reuses one *gui.Layout across ticks even though the
+// fake window does not advance FrameCount).
+func checkDoubleMount(
+	frame *editorFrameData, layout *gui.Layout, w *gui.Window,
+) {
+	currentFrame := w.FrameCount() + 1
+	var layoutPtr uintptr
+	if layout != nil {
+		layoutPtr = uintptr(unsafe.Pointer(layout))
+	}
+	if frame.frameSeq == currentFrame &&
+		frame.lastLayout != 0 &&
+		layoutPtr != 0 &&
+		frame.lastLayout != layoutPtr {
+		panic("go-edit: Editor view mounted twice in the same " +
+			"frame — give each mount a distinct IDFocus or " +
+			"construct a new Editor(cfg) per mount site")
+	}
+	frame.frameSeq = currentFrame
+	frame.lastLayout = layoutPtr
+}
+
 // editorAmendLayout runs each frame with *Window access. It loads
 // persistent state, lazily builds the text Measurer, recomputes
 // per-frame layout metrics, and publishes them via the frame struct
@@ -34,6 +62,7 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 	var maxContentEditRemove func()
 
 	return func(layout *gui.Layout, w *gui.Window) {
+		checkDoubleMount(frame, layout, w)
 		st := loadState(w, cfg.IDFocus)
 		if st.Measurer == nil {
 			st.Measurer = text.New(w, editorMonoStyle(gui.CurrentTheme()))
@@ -686,8 +715,12 @@ func computeBracketMatch(
 		return
 	}
 	if cfg.ShowBracketMatch && len(st.Cursors) > 0 {
-		if m, ok := findMatchingBracket(
-			cfg.Buffer, st.Cursors[0].Cursor); ok {
+		// Suppress the highlight when the scan was capped; treat
+		// the match as unknown rather than drawing a misleading
+		// pair.
+		m, ok, capped := findMatchingBracket(
+			cfg.Buffer, st.Cursors[0].Cursor)
+		if ok && !capped {
 			_, bpos := bracketAtCursor(
 				cfg.Buffer, st.Cursors[0].Cursor)
 			frame.bracketMatch = [2]buffer.Position{bpos, m}

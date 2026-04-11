@@ -93,10 +93,13 @@ func (h *Highlighter) Close() {
 	}
 }
 
-// Decorate implements buffer.DecorationProvider. It returns
-// DecoToken decorations for the visible viewport. Invalid
-// (or never-tokenized) lines are tokenized synchronously.
-func (h *Highlighter) Decorate(vp buffer.Viewport) []buffer.Decoration {
+// Decorate implements buffer.DecorationProvider. It appends
+// DecoToken decorations for the visible viewport to out and
+// returns the extended slice. Invalid (or never-tokenized)
+// lines are tokenized synchronously.
+func (h *Highlighter) Decorate(
+	vp buffer.Viewport, out []buffer.Decoration,
+) []buffer.Decoration {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -110,16 +113,15 @@ func (h *Highlighter) Decorate(vp buffer.Viewport) []buffer.Decoration {
 		vp.FirstLine = 0
 	}
 	if vp.LastLine < vp.FirstLine {
-		return nil
+		return out
 	}
 
-	var decos []buffer.Decoration
 	for i := vp.FirstLine; i <= vp.LastLine && i < len(h.tokens); i++ {
 		for _, tok := range h.tokens[i] {
 			if tok.Fg == 0 {
 				continue // default color; skip decoration
 			}
-			decos = append(decos, buffer.Decoration{
+			out = append(out, buffer.Decoration{
 				Kind: buffer.DecoToken,
 				Range: buffer.Range{
 					Start: buffer.Position{Line: i, ByteCol: tok.Start},
@@ -131,7 +133,7 @@ func (h *Highlighter) Decorate(vp buffer.Viewport) []buffer.Decoration {
 			})
 		}
 	}
-	return decos
+	return out
 }
 
 // retokenize runs chroma over the full buffer and rebuilds the

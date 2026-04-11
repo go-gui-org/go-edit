@@ -36,9 +36,41 @@ type Binding struct {
 }
 
 // Keymap is an ordered list of bindings. First match wins.
+//
+// Bindings is authoritative and is also used by the help overlay
+// for ordered enumeration. A lazily built lookup map accelerates
+// Resolve. Keymap is treated as immutable after first Resolve; if
+// a caller ever appends to Bindings after Resolve has built the
+// cache, they must set lookup = nil to force a rebuild.
 type Keymap struct {
 	Name     string
 	Bindings []Binding
+
+	// lookup is a lazy cache keyed by packBinding(key, mods);
+	// built on first Resolve, nil until then.
+	lookup map[uint32]string
+}
+
+// packBinding folds (key, mods) into a single uint32 suitable as a
+// map key. KeyCode is uint16; Modifier bits currently stay inside
+// the low 16 bits (max observed 0x40F).
+func packBinding(key gui.KeyCode, mods gui.Modifier) uint32 {
+	return uint32(key)<<16 | uint32(uint16(mods))
+}
+
+// buildLookup populates k.lookup from k.Bindings. First-match
+// semantics are preserved: earlier entries win, so iterate in order
+// and skip keys already present.
+func (k *Keymap) buildLookup() {
+	lk := make(map[uint32]string, len(k.Bindings))
+	for _, b := range k.Bindings {
+		key := packBinding(b.Key, b.Modifiers)
+		if _, exists := lk[key]; exists {
+			continue
+		}
+		lk[key] = b.ActionID
+	}
+	k.lookup = lk
 }
 
 // KeymapStack resolves key events by walking layers top to
@@ -69,11 +101,14 @@ func (ks *KeymapStack) Pop() *Keymap {
 // Resolve finds the action ID for a key+modifier combo,
 // searching top to bottom. Returns ("", false) if unbound.
 func (ks *KeymapStack) Resolve(key gui.KeyCode, mods gui.Modifier) (string, bool) {
+	pk := packBinding(key, mods)
 	for i := len(ks.layers) - 1; i >= 0; i-- {
-		for _, b := range ks.layers[i].Bindings {
-			if b.Key == key && b.Modifiers == mods {
-				return b.ActionID, true
-			}
+		layer := ks.layers[i]
+		if layer.lookup == nil && len(layer.Bindings) > 0 {
+			layer.buildLookup()
+		}
+		if id, ok := layer.lookup[pk]; ok {
+			return id, true
 		}
 	}
 	return "", false

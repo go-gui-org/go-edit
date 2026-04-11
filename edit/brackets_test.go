@@ -151,9 +151,12 @@ func TestFindMatchingBracket(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := bufFromLines(tt.lines...)
-			got, ok := findMatchingBracket(buf, tt.cursor)
+			got, ok, capped := findMatchingBracket(buf, tt.cursor)
 			if ok != tt.wantOK {
 				t.Fatalf("ok = %v, want %v", ok, tt.wantOK)
+			}
+			if capped {
+				t.Fatalf("unexpected capped=true for small input")
 			}
 			if ok && got != tt.want {
 				t.Fatalf("got %v, want %v", got, tt.want)
@@ -170,8 +173,30 @@ func TestBracketScanCap(t *testing.T) {
 		long[i] = 'x'
 	}
 	buf := bufFromLines(string(long))
-	_, ok := findMatchingBracket(buf, buffer.Position{})
+	_, ok, capped := findMatchingBracket(buf, buffer.Position{})
 	if ok {
 		t.Fatal("expected no match beyond scan cap")
+	}
+	if !capped {
+		t.Fatal("expected capped=true when scan hits cap")
+	}
+}
+
+func TestBracketScanCap_BackwardDirection(t *testing.T) {
+	// A closer at the end of a long line with no opener should
+	// also report capped.
+	long := make([]byte, maxBracketScan+100)
+	for i := range long {
+		long[i] = 'x'
+	}
+	long[len(long)-1] = ')'
+	buf := bufFromLines(string(long))
+	_, ok, capped := findMatchingBracket(buf,
+		buffer.Position{Line: 0, ByteCol: len(long) - 1})
+	if ok {
+		t.Fatal("expected no match for unbalanced closer")
+	}
+	if !capped {
+		t.Fatal("expected capped=true on backward scan hitting cap")
 	}
 }

@@ -56,21 +56,34 @@ func foldRangeAt(buf *buffer.Buffer, line int, tabWidth int) (FoldRange, bool) {
 	return FoldRange{StartLine: line, EndLine: end}, true
 }
 
-// toggleFold adds or removes a fold at line.
+// toggleFold adds or removes a fold at line. Preserves the
+// foldRangeInvariant: returned slice is sorted by StartLine with no
+// overlapping ranges.
 func toggleFold(folds []FoldRange, buf *buffer.Buffer, line int, tabWidth int) []FoldRange {
 	if buf == nil || line < 0 || line >= buf.LineCount() {
 		return folds
 	}
-	// If line is a fold header, remove it.
-	for i, f := range folds {
-		if f.StartLine == line {
-			return slices.Delete(folds, i, i+1)
-		}
+	// If line is a fold header, remove it (preserves sort order).
+	if idx, found := findFoldByStart(folds, line); found {
+		return slices.Delete(folds, idx, idx+1)
+	}
+	// Reject creation inside an existing fold to keep ranges
+	// non-overlapping. Under normal UI flow the cursor is snapped out
+	// of folds so this is defensive.
+	if isFolded(folds, line) {
+		return folds
 	}
 	// Otherwise, try to create a fold.
 	fr, ok := foldRangeAt(buf, line, tabWidth)
 	if !ok {
 		return folds
+	}
+	// Reject creation if the new range would overlap an existing
+	// fold (e.g. fr.EndLine reaches into or past the next header).
+	if nextFoldStart, ok := nextFoldStartAfter(folds, line); ok {
+		if fr.EndLine >= nextFoldStart {
+			return folds
+		}
 	}
 	folds = append(folds, fr)
 	sortFolds(folds)
@@ -95,6 +108,11 @@ func foldAll(buf *buffer.Buffer, tabWidth int) []FoldRange {
 	return folds
 }
 
+// foldRangeInvariant: callers of binary-search helpers below must
+// uphold "folds sorted by StartLine ascending, no overlapping
+// ranges." All mutators (toggleFold, foldAll, invalidateFolds,
+// unfoldAt) preserve it; sortFolds restores it.
+
 // sortFolds sorts fold ranges by StartLine.
 func sortFolds(folds []FoldRange) {
 	slices.SortFunc(folds, func(a, b FoldRange) int {
@@ -102,47 +120,81 @@ func sortFolds(folds []FoldRange) {
 	})
 }
 
+// findFoldByStart returns the index of the fold whose StartLine
+// equals line. Binary search; assumes foldRangeInvariant.
+func findFoldByStart(folds []FoldRange, line int) (int, bool) {
+	return slices.BinarySearchFunc(folds, line,
+		func(f FoldRange, target int) int {
+			return f.StartLine - target
+		})
+}
+
+// foldContaining returns the index of the fold whose range covers
+// line (header or interior). Binary search; assumes foldRangeInvariant.
+func foldContaining(folds []FoldRange, line int) (int, bool) {
+	// Find the greatest StartLine <= line.
+	idx, exact := slices.BinarySearchFunc(folds, line,
+		func(f FoldRange, target int) int {
+			return f.StartLine - target
+		})
+	if !exact {
+		idx--
+	}
+	if idx < 0 || idx >= len(folds) {
+		return -1, false
+	}
+	if line >= folds[idx].StartLine && line <= folds[idx].EndLine {
+		return idx, true
+	}
+	return -1, false
+}
+
+// nextFoldStartAfter returns the StartLine of the first fold with
+// StartLine > line, if any.
+func nextFoldStartAfter(folds []FoldRange, line int) (int, bool) {
+	idx, _ := slices.BinarySearchFunc(folds, line+1,
+		func(f FoldRange, target int) int {
+			return f.StartLine - target
+		})
+	if idx >= len(folds) {
+		return 0, false
+	}
+	return folds[idx].StartLine, true
+}
+
 // isFoldHeader reports whether line is the start of a fold.
 func isFoldHeader(folds []FoldRange, line int) bool {
-	for _, f := range folds {
-		if f.StartLine == line {
-			return true
-		}
-	}
-	return false
+	_, ok := findFoldByStart(folds, line)
+	return ok
 }
 
 // isFolded reports whether line is hidden (inside a fold, not
 // the header).
 func isFolded(folds []FoldRange, line int) bool {
-	for _, f := range folds {
-		if line > f.StartLine && line <= f.EndLine {
-			return true
-		}
+	idx, ok := foldContaining(folds, line)
+	if !ok {
+		return false
 	}
-	return false
+	return line > folds[idx].StartLine
 }
 
 // nextVisible returns the next visible line at or after line,
 // skipping folded ranges. If line itself is visible, returns line.
 func nextVisible(folds []FoldRange, line int) int {
-	for _, f := range folds {
-		if line > f.StartLine && line <= f.EndLine {
-			return f.EndLine + 1
-		}
+	idx, ok := foldContaining(folds, line)
+	if !ok || line == folds[idx].StartLine {
+		return line
 	}
-	return line
+	return folds[idx].EndLine + 1
 }
 
 // prevVisible returns the previous visible line at or before line.
 func prevVisible(folds []FoldRange, line int) int {
-	for i := len(folds) - 1; i >= 0; i-- {
-		f := folds[i]
-		if line > f.StartLine && line <= f.EndLine {
-			return f.StartLine
-		}
+	idx, ok := foldContaining(folds, line)
+	if !ok || line == folds[idx].StartLine {
+		return line
 	}
-	return line
+	return folds[idx].StartLine
 }
 
 // visibleLineCount returns the number of visible lines,
@@ -210,15 +262,13 @@ func snapCursorOutOfFold(cs *CursorState, folds []FoldRange) {
 	if cs == nil {
 		return
 	}
-	for _, f := range folds {
-		if cs.Cursor.Line > f.StartLine &&
-			cs.Cursor.Line <= f.EndLine {
-			cs.Cursor.Line = f.StartLine
-			cs.Cursor.ByteCol = 0
-			cs.ClearSelection()
-			return
-		}
+	idx, ok := foldContaining(folds, cs.Cursor.Line)
+	if !ok || cs.Cursor.Line == folds[idx].StartLine {
+		return
 	}
+	cs.Cursor.Line = folds[idx].StartLine
+	cs.Cursor.ByteCol = 0
+	cs.ClearSelection()
 }
 
 // skipFoldsDown moves a cursor past folded ranges when moving
@@ -228,13 +278,11 @@ func skipFoldsDown(cs *CursorState, folds []FoldRange) {
 	if cs == nil {
 		return
 	}
-	for _, f := range folds {
-		if cs.Cursor.Line > f.StartLine &&
-			cs.Cursor.Line <= f.EndLine {
-			cs.Cursor.Line = f.EndLine + 1
-			return
-		}
+	idx, ok := foldContaining(folds, cs.Cursor.Line)
+	if !ok || cs.Cursor.Line == folds[idx].StartLine {
+		return
 	}
+	cs.Cursor.Line = folds[idx].EndLine + 1
 }
 
 // skipFoldsUp moves a cursor before folded ranges when moving up.

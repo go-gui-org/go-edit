@@ -112,6 +112,34 @@ func TestKeymapModifiers(t *testing.T) {
 	}
 }
 
+func TestKeymap_LookupMatchesLinearScan(t *testing.T) {
+	// Oracle: the pre-refactor linear scan, inlined for the test.
+	linear := func(km *Keymap, key gui.KeyCode, mods gui.Modifier) (string, bool) {
+		for _, b := range km.Bindings {
+			if b.Key == key && b.Modifiers == mods {
+				return b.ActionID, true
+			}
+		}
+		return "", false
+	}
+	// Cover every binding in DefaultKeymap plus a handful of misses.
+	km := DefaultKeymap
+	var s KeymapStack
+	s.Push(km)
+	for _, b := range km.Bindings {
+		want, wantOk := linear(km, b.Key, b.Modifiers)
+		got, gotOk := s.Resolve(b.Key, b.Modifiers)
+		if gotOk != wantOk || got != want {
+			t.Fatalf("binding %+v: got (%q,%v) want (%q,%v)",
+				b, got, gotOk, want, wantOk)
+		}
+	}
+	// Miss: a key/modifier combo that should not exist.
+	if _, ok := s.Resolve(gui.KeyA, gui.ModCtrlAltShift|gui.ModSuper); ok {
+		t.Fatal("expected unbound combo to miss")
+	}
+}
+
 func TestDefaultKeymapCoversAllActions(t *testing.T) {
 	// Every action ID in DefaultKeymap must exist in
 	// defaultActions (page actions are added at runtime, so

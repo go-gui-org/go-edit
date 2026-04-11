@@ -232,3 +232,71 @@ func TestInvalidateFolds(t *testing.T) {
 		t.Fatalf("wrong fold remaining: %+v", result[0])
 	}
 }
+
+// linearIsFolded is the pre-refactor reference implementation; used
+// as a differential oracle in TestFold_BinarySearchMatchesLinear.
+func linearIsFolded(folds []FoldRange, line int) bool {
+	for _, f := range folds {
+		if line > f.StartLine && line <= f.EndLine {
+			return true
+		}
+	}
+	return false
+}
+
+func linearNextVisible(folds []FoldRange, line int) int {
+	for _, f := range folds {
+		if line > f.StartLine && line <= f.EndLine {
+			return f.EndLine + 1
+		}
+	}
+	return line
+}
+
+func linearPrevVisible(folds []FoldRange, line int) int {
+	for i := len(folds) - 1; i >= 0; i-- {
+		f := folds[i]
+		if line > f.StartLine && line <= f.EndLine {
+			return f.StartLine
+		}
+	}
+	return line
+}
+
+func linearIsFoldHeader(folds []FoldRange, line int) bool {
+	for _, f := range folds {
+		if f.StartLine == line {
+			return true
+		}
+	}
+	return false
+}
+
+func TestFold_BinarySearchMatchesLinear(t *testing.T) {
+	// Build a deterministic collection of non-overlapping sorted
+	// fold sets and verify binary search matches the linear oracle
+	// across every queried line.
+	cases := [][]FoldRange{
+		{},
+		{{StartLine: 0, EndLine: 3}},
+		{{StartLine: 5, EndLine: 9}},
+		{{StartLine: 0, EndLine: 2}, {StartLine: 4, EndLine: 6}, {StartLine: 10, EndLine: 15}},
+		{{StartLine: 1, EndLine: 1}, {StartLine: 3, EndLine: 8}, {StartLine: 9, EndLine: 9}},
+	}
+	for idx, folds := range cases {
+		for line := -1; line <= 20; line++ {
+			if got, want := isFolded(folds, line), linearIsFolded(folds, line); got != want {
+				t.Fatalf("case %d line %d: isFolded=%v want %v", idx, line, got, want)
+			}
+			if got, want := nextVisible(folds, line), linearNextVisible(folds, line); got != want {
+				t.Fatalf("case %d line %d: nextVisible=%d want %d", idx, line, got, want)
+			}
+			if got, want := prevVisible(folds, line), linearPrevVisible(folds, line); got != want {
+				t.Fatalf("case %d line %d: prevVisible=%d want %d", idx, line, got, want)
+			}
+			if got, want := isFoldHeader(folds, line), linearIsFoldHeader(folds, line); got != want {
+				t.Fatalf("case %d line %d: isFoldHeader=%v want %v", idx, line, got, want)
+			}
+		}
+	}
+}

@@ -586,3 +586,46 @@ func TestTriggerAction_ReadOnlyBlocksEditAction(t *testing.T) {
 		t.Errorf("undo ran in read-only mode: got %q", string(buf.Line(0)))
 	}
 }
+
+// TestEditor_DoubleMountPanics verifies the W2 guard fires when
+// the closure-shared frame struct receives two AmendLayout calls
+// with distinct *gui.Layout pointers inside the same frame.
+func TestEditor_DoubleMountPanics(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic on double-mount")
+		}
+	}()
+	cfg := EditorCfg{
+		IDFocus: 900, Buffer: buffer.New(),
+		Width: 400, Height: 200,
+	}
+	frame := &editorFrameData{}
+	amend := editorAmendLayout(cfg, frame)
+	w := fakewin.New()
+	// Two distinct Layout allocations simulate two mount sites
+	// in the same render tree at the same frame.
+	ly1 := &gui.Layout{}
+	ly2 := &gui.Layout{}
+	amend(ly1, w)
+	amend(ly2, w) // must panic
+}
+
+// TestEditor_ReuseLayoutDoesNotPanic verifies the guard tolerates
+// the test driver pattern of calling AmendLayout many times with
+// the same *gui.Layout (simulating successive frames where the
+// framework's frame counter is not advanced).
+func TestEditor_ReuseLayoutDoesNotPanic(t *testing.T) {
+	cfg := EditorCfg{
+		IDFocus: 901, Buffer: buffer.New(),
+		Width: 400, Height: 200,
+	}
+	frame := &editorFrameData{}
+	amend := editorAmendLayout(cfg, frame)
+	w := fakewin.New()
+	ly := &gui.Layout{}
+	for range 5 {
+		amend(ly, w)
+	}
+}

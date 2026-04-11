@@ -56,6 +56,12 @@ type Viewport struct {
 // Called once per frame for the visible range. Implementations
 // must be fast; heavy work should be done asynchronously and
 // cached.
+//
+// Decorate appends decorations for vp to out and returns the
+// extended slice. The returned slice is owned by the caller;
+// providers must not retain it across calls. Passing a nil out
+// is valid and produces a freshly allocated slice on first
+// append.
 type DecorationProvider interface {
-	Decorate(vp Viewport) []Decoration
+	Decorate(vp Viewport, out []Decoration) []Decoration
 }
