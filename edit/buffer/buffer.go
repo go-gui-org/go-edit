@@ -9,8 +9,18 @@ import (
 
 // MaxLoadBytes caps the number of bytes Buffer.Load will read from
 // an io.Reader. Larger files return an error rather than risking
-// OOM from an unbounded io.ReadAll.
-const MaxLoadBytes = 1 << 28 // 256 MiB
+// OOM from an unbounded io.ReadAll. The `[]*line` line store
+// costs roughly 2x the file size in Go heap; 32 MiB keeps widget
+// memory bounded until the per-line gap-buffer lands.
+const MaxLoadBytes = 1 << 25 // 32 MiB
+
+// MaxLineBytes caps the byte length of any single line in the
+// buffer. Edits that would produce a line exceeding this limit
+// are rejected by Apply (returning a zero Change); the loader
+// hard-splits over-long segments at `fromRawBytes` time so
+// pathological inputs (minified JS, 2 MB single-line logs) open
+// read-only-ish instead of breaking the wrap/measurer paths.
+const MaxLineBytes = 1 << 20 // 1 MiB
 
 // Buffer is the document model: a slice of lines plus the single edit
 // choke point Apply. A Buffer always contains at least one line (the
@@ -150,15 +160,28 @@ func fromRawBytes(raw []byte) (*Buffer, error) {
 	return b, nil
 }
 
-// FromBytes builds a buffer from raw bytes without I/O.
+// FromBytes builds a buffer from raw bytes without I/O. Any
+// natural line whose length exceeds MaxLineBytes is hard-split
+// into synthetic continuation lines of MaxLineBytes each; the
+// split is driven by byte length only, not by character
+// boundaries, so a split inside a multi-byte rune is possible
+// but visually benign because all render paths treat bytes as
+// bytes until Phase 2 grapheme support lands.
 func FromBytes(raw []byte) *Buffer {
 	if len(raw) == 0 {
 		return New()
 	}
 	parts := bytes.Split(raw, []byte{'\n'})
-	lines := make([]*line, len(parts))
-	for i, p := range parts {
-		lines[i] = newLine(p)
+	lines := make([]*line, 0, len(parts))
+	for _, p := range parts {
+		if len(p) <= MaxLineBytes {
+			lines = append(lines, newLine(p))
+			continue
+		}
+		for start := 0; start < len(p); start += MaxLineBytes {
+			end := min(start+MaxLineBytes, len(p))
+			lines = append(lines, newLine(p[start:end]))
+		}
 	}
 	return &Buffer{lines: lines, Props: DefaultFileProps()}
 }
@@ -211,6 +234,10 @@ func (b *Buffer) TextInRange(r Range) string {
 // Apply panics on internal invariant break (e.g. negative line index).
 // It tolerates out-of-range columns by clamping. It never panics on
 // user input. Panic policy locked in Phase -1.
+//
+// Apply rejects edits that would produce a line exceeding
+// MaxLineBytes; rejection returns a zero Change just like a
+// filter veto.
 func (b *Buffer) Apply(e Edit) Change {
 	// Clamp here so filters see valid coordinates. applyCore
 	// does not re-clamp on the Apply path (record=true) since
@@ -227,8 +254,65 @@ func (b *Buffer) Apply(e Edit) Change {
 		}
 	}
 
+	if b.editWouldExceedMaxLine(e) {
+		return Change{}
+	}
+
 	c := b.applyCore(e, true)
 	return c
+}
+
+// editWouldExceedMaxLine reports whether applying e would produce
+// any resulting line longer than MaxLineBytes. Used by Apply to
+// reject pathological edits before they reach applyCore.
+func (b *Buffer) editWouldExceedMaxLine(e Edit) bool {
+	// Fast path: new bytes empty or small and no line grows.
+	if len(e.NewBytes) == 0 {
+		// Deletion only: never grows a line beyond its current
+		// length unless it joins two lines. Joined length is
+		// the sum of prefix + suffix minus deleted span.
+		if e.Range.Start.Line == e.Range.End.Line {
+			return false
+		}
+		first := len(b.lines[e.Range.Start.Line].bytes())
+		last := len(b.lines[e.Range.End.Line].bytes())
+		joined := e.Range.Start.ByteCol +
+			(last - e.Range.End.ByteCol)
+		_ = first // not used; joined reflects the result
+		return joined > MaxLineBytes
+	}
+	// Insertion or replace. Split NewBytes into segments to
+	// determine which resulting lines are constructed from
+	// edits, then check the extremes.
+	segs := bytes.Split(e.NewBytes, []byte{'\n'})
+	if len(segs) == 1 {
+		// Single-segment insert collapses to one line: the
+		// prefix + segs[0] + suffix of the original end line.
+		prefix := e.Range.Start.ByteCol
+		suffix := len(b.lines[e.Range.End.Line].bytes()) -
+			e.Range.End.ByteCol
+		return prefix+len(segs[0])+suffix > MaxLineBytes
+	}
+	// Multi-segment: first resulting line = prefix + segs[0];
+	// last resulting line = segs[last] + suffix; middle lines
+	// are segs[1..last-1] as-is.
+	first := e.Range.Start.ByteCol + len(segs[0])
+	if first > MaxLineBytes {
+		return true
+	}
+	lastIdx := len(segs) - 1
+	suffix := len(b.lines[e.Range.End.Line].bytes()) -
+		e.Range.End.ByteCol
+	last := len(segs[lastIdx]) + suffix
+	if last > MaxLineBytes {
+		return true
+	}
+	for i := 1; i < lastIdx; i++ {
+		if len(segs[i]) > MaxLineBytes {
+			return true
+		}
+	}
+	return false
 }
 
 // applyCore performs the buffer mutation and notifies post-edit

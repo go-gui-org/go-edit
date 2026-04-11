@@ -26,6 +26,30 @@ func (r *repeatReader) Read(p []byte) (int, error) {
 	return n, nil
 }
 
+// newlineAfterReader emits n bytes: alternating runs of printable
+// bytes separated by '\n' every `period` bytes. Used by
+// max-bytes-at-limit tests to avoid hitting MaxLineBytes hard-split.
+type newlineAfterReader struct {
+	n, period, pos int
+}
+
+func (r *newlineAfterReader) Read(p []byte) (int, error) {
+	if r.n <= 0 {
+		return 0, io.EOF
+	}
+	n := min(len(p), r.n)
+	for i := range n {
+		if (r.pos+i+1)%r.period == 0 {
+			p[i] = '\n'
+		} else {
+			p[i] = 'x'
+		}
+	}
+	r.pos += n
+	r.n -= n
+	return n, nil
+}
+
 func TestLoad_NilReader(t *testing.T) {
 	b, err := Load(nil)
 	if err != nil {
@@ -49,14 +73,131 @@ func TestLoad_ExceedsMaxBytes(t *testing.T) {
 }
 
 func TestLoad_AtExactLimit(t *testing.T) {
-	// Exactly MaxLoadBytes must succeed.
-	r := &repeatReader{b: 'x', n: MaxLoadBytes}
+	// Exactly MaxLoadBytes must succeed. Use 4KiB-wide lines so
+	// the MaxLineBytes cap never triggers a hard-split; Len then
+	// equals the input byte count exactly.
+	r := &newlineAfterReader{n: MaxLoadBytes, period: 4096}
 	b, err := Load(r)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if b.Len() != MaxLoadBytes {
 		t.Errorf("Len=%d want %d", b.Len(), MaxLoadBytes)
+	}
+}
+
+// --- MaxLineBytes (W8b) ---
+
+func TestFromBytes_HardSplitsOverlongLine(t *testing.T) {
+	// One logical line, 2.5 * MaxLineBytes long. FromBytes must
+	// hard-split into 3 continuation lines (sizes: Max, Max,
+	// Max/2) to keep every line under the cap.
+	const total = 2*MaxLineBytes + MaxLineBytes/2
+	raw := make([]byte, total)
+	for i := range raw {
+		raw[i] = 'x'
+	}
+	b := FromBytes(raw)
+	if b.LineCount() != 3 {
+		t.Fatalf("LineCount = %d, want 3", b.LineCount())
+	}
+	if got := b.Line(0); len(got) != MaxLineBytes {
+		t.Errorf("line 0 len = %d, want %d", len(got), MaxLineBytes)
+	}
+	if got := b.Line(1); len(got) != MaxLineBytes {
+		t.Errorf("line 1 len = %d, want %d", len(got), MaxLineBytes)
+	}
+	if got := b.Line(2); len(got) != MaxLineBytes/2 {
+		t.Errorf("line 2 len = %d, want %d", len(got), MaxLineBytes/2)
+	}
+}
+
+func TestApply_RejectsOverlongSingleLineInsert(t *testing.T) {
+	b := FromBytes([]byte("abc"))
+	v := b.Version()
+	// Insert bytes that would push line 0 past MaxLineBytes.
+	big := make([]byte, MaxLineBytes)
+	for i := range big {
+		big[i] = 'y'
+	}
+	c := b.Apply(Edit{
+		Range: Range{
+			Start: Position{Line: 0, ByteCol: 3},
+			End:   Position{Line: 0, ByteCol: 3},
+		},
+		NewBytes: big,
+	})
+	if c.Applied.NewBytes != nil || c.Applied.Range != (Range{}) {
+		t.Errorf("expected zero Change on rejection, got %+v", c)
+	}
+	if b.Version() != v {
+		t.Errorf("version advanced on rejected edit: %d -> %d",
+			v, b.Version())
+	}
+	if string(b.Line(0)) != "abc" {
+		t.Errorf("buffer mutated on rejected edit: %q", b.Line(0))
+	}
+}
+
+func TestApply_RejectsOverlongJoinDelete(t *testing.T) {
+	// Two lines that alone fit, but joining them would exceed
+	// MaxLineBytes. Delete the newline between them → reject.
+	first := make([]byte, MaxLineBytes-10)
+	for i := range first {
+		first[i] = 'a'
+	}
+	second := make([]byte, 20)
+	for i := range second {
+		second[i] = 'b'
+	}
+	raw := append(append(first, '\n'), second...)
+	b := FromBytes(raw)
+	if b.LineCount() != 2 {
+		t.Fatalf("setup: LineCount = %d, want 2", b.LineCount())
+	}
+	v := b.Version()
+	// Delete [line 0 end .. line 1 start) — collapses the newline.
+	c := b.Apply(Edit{
+		Range: Range{
+			Start: Position{Line: 0, ByteCol: len(first)},
+			End:   Position{Line: 1, ByteCol: 0},
+		},
+		NewBytes: nil,
+	})
+	if c.Applied.NewBytes != nil || c.Applied.Range != (Range{}) {
+		t.Errorf("expected zero Change on rejection, got %+v", c)
+	}
+	if b.Version() != v {
+		t.Errorf("version advanced on rejected join: %d -> %d",
+			v, b.Version())
+	}
+	if b.LineCount() != 2 {
+		t.Errorf("join unexpectedly applied: LineCount = %d",
+			b.LineCount())
+	}
+}
+
+func TestApply_AcceptsEditAtExactLimit(t *testing.T) {
+	// An insert that produces a line of exactly MaxLineBytes
+	// must succeed — the check is "exceeds", not "equals".
+	b := New()
+	data := make([]byte, MaxLineBytes)
+	for i := range data {
+		data[i] = 'z'
+	}
+	c := b.Apply(Edit{
+		Range: Range{
+			Start: Position{Line: 0, ByteCol: 0},
+			End:   Position{Line: 0, ByteCol: 0},
+		},
+		NewBytes: data,
+	})
+	if len(c.Applied.NewBytes) == 0 {
+		t.Fatal("edit at exact limit was rejected")
+	}
+	if len(b.Line(0)) != MaxLineBytes {
+		t.Errorf("line 0 len = %d, want %d",
+			len(b.Line(0)), MaxLineBytes)
 	}
 }
 
