@@ -64,11 +64,8 @@ func editorOnDraw(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawContext) 
 		}
 
 		// Visible row range in visual-row space.
-		firstVis := max(int(st.ScrollY/lh), 0)
-		lastVis := int((st.ScrollY + dc.Height) / lh)
-		if lastVis >= visTot {
-			lastVis = visTot - 1
-		}
+		firstVis, lastVis := visibleRowRange(
+			st.ScrollY, dc.Height, lh, visTot)
 
 		textX := frame.gutterW + frame.padLeft - st.ScrollX
 
@@ -188,6 +185,19 @@ func editorOnDraw(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawContext) 
 		// Scrollbar overlay.
 		drawScrollbar(dc, cfg, frame, &rt)
 	}
+}
+
+// visibleRowRange returns the first and last visible visual rows
+// for a viewport defined by scrollY, viewHeight, and lineHeight.
+func visibleRowRange(
+	scrollY, viewHeight, lh float32, visTot int,
+) (int, int) {
+	first := max(int(scrollY/lh), 0)
+	last := int((scrollY + viewHeight) / lh)
+	if last >= visTot {
+		last = visTot - 1
+	}
+	return first, last
 }
 
 // visRangeToLogical maps first/last visual rows to logical line
@@ -510,38 +520,15 @@ func editorOnDrawCursor(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawCon
 		if !frame.valid || !frame.cursorVisible {
 			return
 		}
-		st := frame.state
-		lh := frame.lineHeight
-		if lh <= 0 || st.Measurer == nil {
+		if frame.lineHeight <= 0 || frame.state.Measurer == nil {
 			return
 		}
 		// Help overlay replaces buffer rendering and absorbs
 		// keyboard focus — no document cursor while it's up.
-		if st.HelpActive {
+		if frame.state.HelpActive {
 			return
 		}
-		guiTheme := gui.CurrentTheme()
-		monoStyle := editorMonoStyle(guiTheme)
-		rt := resolveEditorTheme(cfg.Theme)
-		buf := cfg.Buffer
-		folds := st.FoldedRanges
-		hasFolds := cfg.EnableFolding && len(folds) > 0
-		wrapOn := frame.wrapActive
-
-		visTot := frame.totalVisRows
-		if visTot <= 0 {
-			visTot = buf.LineCount()
-		}
-		firstVis := max(int(st.ScrollY/lh), 0)
-		lastVis := int((st.ScrollY + dc.Height) / lh)
-		if lastVis >= visTot {
-			lastVis = visTot - 1
-		}
-		textX := frame.gutterW + frame.padLeft - st.ScrollX
-
-		drawCursors(dc, cfg, frame, &st, buf, folds,
-			hasFolds, wrapOn, textX, firstVis, lastVis,
-			lh, monoStyle, &rt)
+		drawCursors(dc, cfg, frame)
 	}
 }
 
@@ -550,16 +537,24 @@ func drawCursors(
 	dc *gui.DrawContext,
 	cfg EditorCfg,
 	frame *editorFrameData,
-	st *editorState,
-	buf *buffer.Buffer,
-	folds []FoldRange,
-	hasFolds, wrapOn bool,
-	textX float32,
-	firstVis, lastVis int,
-	lh float32,
-	style gui.TextStyle,
-	rt *resolvedTheme,
 ) {
+	st := frame.state
+	lh := frame.lineHeight
+	buf := cfg.Buffer
+	folds := st.FoldedRanges
+	hasFolds := cfg.EnableFolding && len(folds) > 0
+	wrapOn := frame.wrapActive
+
+	visTot := frame.totalVisRows
+	if visTot <= 0 {
+		visTot = buf.LineCount()
+	}
+	firstVis, lastVis := visibleRowRange(
+		st.ScrollY, dc.Height, lh, visTot)
+	textX := frame.gutterW + frame.padLeft - st.ScrollX
+
+	style := editorMonoStyle(gui.CurrentTheme())
+	rt := resolveEditorTheme(cfg.Theme)
 	// Sticky scroll headers occupy the top rows of the viewport
 	// and occlude any cursor that would draw behind them. Skip
 	// cursors whose canvas-local y falls inside that band.
