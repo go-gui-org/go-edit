@@ -771,6 +771,10 @@ func textLeftClip(dc *gui.DrawContext, x, y float32, s string, style gui.TextSty
 		dc.Text(x, y, s, style)
 		return
 	}
+	// Inf or absurdly large → entire string is off-screen.
+	if need > 1e18 {
+		return
+	}
 
 	// Estimate skip count from advance, then skip that many
 	// runes. Cap estimate to len(s) to avoid overflow.
