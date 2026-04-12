@@ -158,6 +158,21 @@ type editorFrameData struct {
 	// editorState.LastActivityUnixNano. Read by editorOnDrawCursor.
 	cursorVisible bool
 
+	// IME composition state, read from Window each frame in
+	// editorAmendLayout. Purely visual — not inserted into the
+	// buffer. Read by editorOnDraw (preedit rendering) and
+	// editorOnDrawCursor (hide primary caret during composition).
+	imeComposing bool
+	imePreedit   string
+	imeCursor    int // cursor offset in preedit (runes)
+	imeSelLen    int // selected clause length (runes)
+
+	// imeCommitted is set by editorOnChar when an IME commit
+	// fires and cleared at the start of each AmendLayout pass.
+	// editorOnKeyDown checks this to suppress the Enter/Escape
+	// keydown that the OS sends after the commit event.
+	imeCommitted bool
+
 	// blinkTimer fires w.RequestRedraw at the next blink
 	// transition. Stopped+rescheduled each AmendLayout. Nil when
 	// blink is disabled or running under an injected fake clock.

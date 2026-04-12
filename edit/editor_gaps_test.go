@@ -145,7 +145,7 @@ func TestMoveDown_AtBottom(t *testing.T) {
 func TestBackspace_EmptyBufferNoop(t *testing.T) {
 	buf := buffer.New()
 	cs := mkCursor(0, 0)
-	backspace(&cs, buf)
+	backspace(&cs, buf, nil)
 	if buf.String() != "" || cs.Cursor != (buffer.Position{}) {
 		t.Errorf("content=%q cursor=%+v", buf.String(), cs.Cursor)
 	}
@@ -154,7 +154,7 @@ func TestBackspace_EmptyBufferNoop(t *testing.T) {
 func TestDeleteForward_EmptyBufferNoop(t *testing.T) {
 	buf := buffer.New()
 	cs := mkCursor(0, 0)
-	deleteForward(&cs, buf)
+	deleteForward(&cs, buf, nil)
 	if buf.String() != "" {
 		t.Errorf("content=%q", buf.String())
 	}

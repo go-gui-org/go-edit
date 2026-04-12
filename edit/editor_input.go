@@ -126,7 +126,11 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 
 	return func(layout *gui.Layout, w *gui.Window) {
 		checkDoubleMount(frame, layout, w)
+		frame.imeCommitted = false
 		st := loadState(w, cfg.IDFocus)
+		if st.Measurer != nil {
+			st.Measurer.InvalidateCache()
+		}
 		if st.Measurer == nil {
 			st.Measurer = text.New(w, editorMonoStyle(gui.CurrentTheme()))
 			if st.Measurer == nil {
@@ -256,6 +260,67 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 		frame.gutterW = gutterW
 		frame.padLeft = advance / 2
 		frame.valid = true
+
+		// Capture canvas origin every frame so IMESetRect works
+		// even before the first mouse click.
+		if len(layout.Children) > 0 &&
+			layout.Children[0].Shape != nil {
+			s := layout.Children[0].Shape
+			if s.X == s.X { // not NaN
+				frame.canvasOriginX = s.X
+			}
+			if s.Y == s.Y {
+				frame.canvasOriginY = s.Y
+			}
+		}
+
+		// Read IME composition state from the window. Events
+		// dispatch before AmendLayout, so w.IMEComposing()
+		// already reflects the current frame's composition.
+		frame.imeComposing = w.IMEComposing()
+		if frame.imeComposing {
+			frame.imePreedit = w.IMECompText()
+			frame.imeCursor = w.IMECompCursor()
+			frame.imeSelLen = w.IMECompSelLen()
+		} else {
+			frame.imePreedit = ""
+			frame.imeCursor = 0
+			frame.imeSelLen = 0
+		}
+
+		// Position the OS candidate window near the primary
+		// cursor so the user can see completions.
+		if frame.imeComposing && len(st.Cursors) > 0 {
+			cs := st.Cursors[0]
+			lb := cfg.Buffer.Line(cs.Cursor.Line)
+			cx := gutterW + advance/2 +
+				st.Measurer.XForColumn(lb, cs.Cursor.ByteCol) -
+				st.ScrollX
+			var visRow int
+			hasFolds := cfg.EnableFolding &&
+				len(st.FoldedRanges) > 0
+			if wrapActive && st.Measurer != nil {
+				visRow = globalLogicalToVisualRow(
+					cfg.Buffer, st.Measurer,
+					frame.wrapWidth, st.FoldedRanges,
+					cs.Cursor.Line)
+				brk := computeBreaks(lb,
+					st.Measurer, frame.wrapWidth)
+				we := wrapEntry{BreakCols: brk}
+				visRow += wrapCursorVisualRow(&we,
+					cs.Cursor.ByteCol)
+			} else if hasFolds {
+				visRow = logicalToVisible(
+					cs.Cursor.Line, st.FoldedRanges)
+			} else {
+				visRow = cs.Cursor.Line
+			}
+			cy := float32(visRow)*lh - st.ScrollY
+			w.IMESetRect(
+				frame.canvasOriginX+cx,
+				frame.canvasOriginY+cy,
+				1, lh)
+		}
 
 		// Compute the draw cache version after all frame state is
 		// populated, then write it into the DrawCanvas shape.
@@ -623,6 +688,18 @@ func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *g
 	maps.Copy(actions, cfg.Actions)
 
 	return func(layout *gui.Layout, e *gui.Event, w *gui.Window) {
+		// While an IME composition is active (or was active
+		// this frame), suppress all keymap actions. The IME
+		// owns the keyboard; keys like Enter (accept) and
+		// Escape (cancel) are consumed by the platform.
+		// frame.imeComposing reflects the previous
+		// AmendLayout; imeCommitted is set by editorOnChar
+		// on commit (the EventChar may fire after KeyDown).
+		if frame.imeComposing || frame.imeCommitted {
+			e.IsHandled = true
+			return
+		}
+
 		// Overlay intercepts: help and find bar get first
 		// crack at key events, using a single state load.
 		{
@@ -705,6 +782,63 @@ func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *g
 
 func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.Event, *gui.Window) {
 	return func(layout *gui.Layout, e *gui.Event, w *gui.Window) {
+		// While composing, the OS sends EventChar for each raw
+		// phonetic keystroke (e.g. "k", "a", "n" while
+		// building "かん"). These must not be inserted into the
+		// buffer — the preedit is visual only. On commit the
+		// OS clears composition state before firing the final
+		// EventChar, so w.IMEComposing() is false for the
+		// commit event but frame.imeComposing (from the
+		// previous AmendLayout) is still true.
+		//
+		// Detect commit vs. mid-composition: w.IMEComposing()
+		// is false on commit, true mid-composition.
+		if w.IMEComposing() {
+			e.IsHandled = true
+			return
+		}
+		if frame.imeComposing {
+			// This is the commit event. Mark the frame so
+			// editorOnKeyDown suppresses the trailing
+			// Enter/Escape the OS sends after the commit.
+			frame.imeCommitted = true
+		}
+
+		// IME commit: insert the full committed string when it
+		// contains multiple codepoints (e.g. Chinese "漢字").
+		// Single-rune commits are handled by the normal CharCode
+		// path below. All backends set IMEText on every
+		// EventChar, so checking len > 1 rune distinguishes
+		// true multi-codepoint IME commits from normal typing.
+		if utf8.RuneCountInString(e.IMEText) > 1 {
+			st := loadState(w, cfg.IDFocus)
+			if st.HelpActive {
+				e.IsHandled = true
+				return
+			}
+			if st.Search.Active {
+				handleSearchString(
+					&st, cfg.Buffer, e.IMEText)
+				resetBlink(cfg, &st)
+				storeState(w, cfg.IDFocus, st)
+				e.IsHandled = true
+				return
+			}
+			if cfg.ReadOnly {
+				return
+			}
+			resetBlink(cfg, &st)
+			cfg.Buffer.SetUndoCursorState(
+				buildUndoCursorState(&st))
+			charInsertPerCursor(
+				&st, cfg.Buffer, []byte(e.IMEText))
+			sortAndMerge(&st)
+			ensureCursorVisible(&st, frame, cfg)
+			storeState(w, cfg.IDFocus, st)
+			e.IsHandled = true
+			return
+		}
+
 		r := rune(e.CharCode)
 		if !acceptChar(r) {
 			return
@@ -832,9 +966,44 @@ func editorOnMouseScroll(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout
 
 // ---------- Pure cursor math (testable without *Window) ----------
 
-func moveLeft(cs *CursorState, buf *buffer.Buffer) {
+// cursorNext returns the byte offset of the next valid cursor
+// position on the current line. Delegates to go-glyph via
+// Measurer when available; falls back to rune-based advance.
+func cursorNext(
+	line []byte, col int, m *text.Measurer,
+) int {
+	if m != nil {
+		return m.NextCursorPos(line, col)
+	}
+	_, sz := utf8.DecodeRune(line[col:])
+	if sz == 0 {
+		sz = 1
+	}
+	return col + sz
+}
+
+// cursorPrev returns the byte offset of the previous valid cursor
+// position on the current line. Mirrors cursorNext.
+func cursorPrev(
+	line []byte, col int, m *text.Measurer,
+) int {
+	if m != nil {
+		return m.PrevCursorPos(line, col)
+	}
+	_, sz := utf8.DecodeLastRune(line[:col])
+	if sz == 0 {
+		sz = 1
+	}
+	return col - sz
+}
+
+func moveLeft(
+	cs *CursorState, buf *buffer.Buffer, m *text.Measurer,
+) {
 	if cs.Cursor.ByteCol > 0 {
-		cs.Cursor.ByteCol--
+		line := buf.Line(cs.Cursor.Line)
+		cs.Cursor.ByteCol = cursorPrev(
+			line, cs.Cursor.ByteCol, m)
 		return
 	}
 	if cs.Cursor.Line > 0 {
@@ -843,10 +1012,13 @@ func moveLeft(cs *CursorState, buf *buffer.Buffer) {
 	}
 }
 
-func moveRight(cs *CursorState, buf *buffer.Buffer) {
+func moveRight(
+	cs *CursorState, buf *buffer.Buffer, m *text.Measurer,
+) {
 	line := buf.Line(cs.Cursor.Line)
 	if cs.Cursor.ByteCol < len(line) {
-		cs.Cursor.ByteCol++
+		cs.Cursor.ByteCol = cursorNext(
+			line, cs.Cursor.ByteCol, m)
 		return
 	}
 	if cs.Cursor.Line < buf.LineCount()-1 {
@@ -878,14 +1050,20 @@ func clampCol(cs *CursorState, buf *buffer.Buffer) {
 	cs.Cursor.ByteCol = want
 }
 
-func backspace(cs *CursorState, buf *buffer.Buffer) {
+func backspace(
+	cs *CursorState, buf *buffer.Buffer, m *text.Measurer,
+) {
 	pos := cs.Cursor
 	if pos.Line == 0 && pos.ByteCol == 0 {
 		return
 	}
 	var start buffer.Position
 	if pos.ByteCol > 0 {
-		start = buffer.Position{Line: pos.Line, ByteCol: pos.ByteCol - 1}
+		line := buf.Line(pos.Line)
+		start = buffer.Position{
+			Line:    pos.Line,
+			ByteCol: cursorPrev(line, pos.ByteCol, m),
+		}
 	} else {
 		prevLen := len(buf.Line(pos.Line - 1))
 		start = buffer.Position{Line: pos.Line - 1, ByteCol: prevLen}
@@ -894,12 +1072,18 @@ func backspace(cs *CursorState, buf *buffer.Buffer) {
 	cs.Cursor = c.AppliedRange.End
 }
 
-func deleteForward(cs *CursorState, buf *buffer.Buffer) {
+func deleteForward(
+	cs *CursorState, buf *buffer.Buffer, m *text.Measurer,
+) {
 	pos := cs.Cursor
-	lineLen := len(buf.Line(pos.Line))
+	line := buf.Line(pos.Line)
+	lineLen := len(line)
 	var end buffer.Position
 	if pos.ByteCol < lineLen {
-		end = buffer.Position{Line: pos.Line, ByteCol: pos.ByteCol + 1}
+		end = buffer.Position{
+			Line:    pos.Line,
+			ByteCol: cursorNext(line, pos.ByteCol, m),
+		}
 	} else if pos.Line < buf.LineCount()-1 {
 		end = buffer.Position{Line: pos.Line + 1, ByteCol: 0}
 	} else {

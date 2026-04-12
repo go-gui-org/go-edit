@@ -24,7 +24,7 @@ var defaultActions = map[string]Action{
 				p.Cursor = p.SelectionRange().Start
 				return
 			}
-			moveLeft(p, buf)
+			moveLeft(p, buf, st.Measurer)
 		},
 	},
 	"cursor.right": {
@@ -36,7 +36,7 @@ var defaultActions = map[string]Action{
 				p.Cursor = p.SelectionRange().End
 				return
 			}
-			moveRight(p, buf)
+			moveRight(p, buf, st.Measurer)
 		},
 	},
 	"cursor.up": {
@@ -78,7 +78,7 @@ var defaultActions = map[string]Action{
 		PerCursor:       true,
 		PreservesAnchor: true,
 		Execute: func(_ EditorCfg, st *editorState, buf *buffer.Buffer, _ *gui.Window) {
-			moveLeft(st.primary(), buf)
+			moveLeft(st.primary(), buf, st.Measurer)
 		},
 	},
 	"select.right": {
@@ -86,7 +86,7 @@ var defaultActions = map[string]Action{
 		PerCursor:       true,
 		PreservesAnchor: true,
 		Execute: func(_ EditorCfg, st *editorState, buf *buffer.Buffer, _ *gui.Window) {
-			moveRight(st.primary(), buf)
+			moveRight(st.primary(), buf, st.Measurer)
 		},
 	},
 	"select.up": {
@@ -172,7 +172,7 @@ var defaultActions = map[string]Action{
 				p.Cursor = c.AppliedRange.Start
 				return
 			}
-			backspace(p, buf)
+			backspace(p, buf, st.Measurer)
 		},
 	},
 	"edit.delete": {
@@ -186,7 +186,7 @@ var defaultActions = map[string]Action{
 				buf.EndGroup()
 				return
 			}
-			deleteForward(p, buf)
+			deleteForward(p, buf, st.Measurer)
 		},
 	},
 	"edit.newline": {

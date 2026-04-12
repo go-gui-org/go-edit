@@ -55,6 +55,21 @@ func NewScrollEvent(deltaY float32) *gui.Event {
 	}
 }
 
+// NewIMECharEvent builds an EventChar with IMEText set, simulating
+// an IME commit. CharCode is set to the first rune of text.
+func NewIMECharEvent(text string) *gui.Event {
+	var code uint32
+	for _, r := range text {
+		code = uint32(r)
+		break
+	}
+	return &gui.Event{
+		Type:     gui.EventChar,
+		CharCode: code,
+		IMEText:  text,
+	}
+}
+
 // NewClickEvent builds a mouse-down (click) event at the given
 // coordinates with optional modifiers.
 func NewClickEvent(x, y float32, mods gui.Modifier) *gui.Event {

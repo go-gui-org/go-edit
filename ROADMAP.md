@@ -462,7 +462,7 @@ recommended sequence.
       document the limit in package docs and surface a clear error
       on overflow. go-edit positions as a code editor, not a log
       viewer.
-- [ ] IME composition. No upstream push required — go-gui
+- [x] IME composition. No upstream push required — go-gui
       already exposes `EventIMEComposition`, `Window.IMEComposing`/
       `IMECompText`/`IMECompCursor`/`IMECompSelLen`, `IMESetRect`,
       and delivers commits via `EventChar` with `e.IMEText`

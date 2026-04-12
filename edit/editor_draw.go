@@ -455,7 +455,8 @@ func drawBracketHighlights(
 		if bp.Line == line &&
 			bp.ByteCol >= subStart && bp.ByteCol < subEnd {
 			bx := textX + m.XForColumn(lineBytes, bp.ByteCol)
-			dc.FilledRect(bx, y, m.Advance(), lh, bmColor)
+			bw := m.CharWidth(lineBytes, bp.ByteCol)
+			dc.FilledRect(bx, y, bw, lh, bmColor)
 		}
 	}
 }
@@ -759,36 +760,70 @@ func renderStyledLine(
 	}
 }
 
-// textLeftClip calls dc.Text but skips leading runes where x < clipLeft.
-// s must be tab-expanded. advance is the monospace cell width.
+// textLeftClip calls dc.Text but skips leading characters that
+// fall left of clipLeft. For ASCII strings the monospace advance
+// gives exact skip counts. For non-ASCII strings (CJK, etc.)
+// it measures cumulative width to find the correct skip point.
 func textLeftClip(dc *gui.DrawContext, x, y float32, s string, style gui.TextStyle, clipLeft, advance float32) {
 	if len(s) == 0 {
 		return
 	}
-	// advance <= 0 also catches NaN (NaN comparisons are always false,
-	// so !(advance > 0) is the safe guard).
 	if x >= clipLeft || !(advance > 0) {
 		dc.Text(x, y, s, style)
 		return
 	}
-	// Ceiling: minimum runes to skip so draw x >= clipLeft.
-	// math.Ceil handles exact multiples (e.g. need=24, adv=8 → skip=3,
-	// not 4). Cap at len(s) to guard against int overflow on huge clipLeft.
 	need := clipLeft - x
-	skip := int(math.Ceil(float64(need) / float64(advance)))
-	if skip < 1 || skip > len(s) {
-		skip = len(s)
+
+	// Check for non-ASCII content.
+	nonASCII := false
+	for i := range len(s) {
+		if s[i] >= utf8.RuneSelf {
+			nonASCII = true
+			break
+		}
 	}
-	i, n := 0, 0
-	for n < skip && i < len(s) {
+
+	if !nonASCII {
+		// ASCII fast path: exact skip.
+		skip := int(math.Ceil(float64(need) / float64(advance)))
+		if skip >= len(s) {
+			return
+		}
+		dc.Text(x+float32(skip)*advance, y, s[skip:], style)
+		return
+	}
+
+	// Non-ASCII: skip runes by measured width. If no text
+	// measurer is available (headless), fall back to
+	// rune-count * advance as a rough estimate.
+	probe := dc.TextWidth("M", style)
+	if probe == 0 {
+		skip := int(math.Ceil(float64(need) / float64(advance)))
+		i, n := 0, 0
+		for n < skip && i < len(s) {
+			_, sz := utf8.DecodeRuneInString(s[i:])
+			i += sz
+			n++
+		}
+		if i >= len(s) {
+			return
+		}
+		dc.Text(x+float32(n)*advance, y, s[i:], style)
+		return
+	}
+	i := 0
+	for i < len(s) {
 		_, sz := utf8.DecodeRuneInString(s[i:])
 		i += sz
-		n++
+		if dc.TextWidth(s[:i], style) >= need {
+			break
+		}
 	}
 	if i >= len(s) {
 		return
 	}
-	dc.Text(x+float32(n)*advance, y, s[i:], style)
+	skippedW := dc.TextWidth(s[:i], style)
+	dc.Text(x+skippedW, y, s[i:], style)
 }
 
 // decoColorToGUI converts 0xRRGGBBAA to gui.Color.

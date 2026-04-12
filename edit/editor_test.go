@@ -24,7 +24,7 @@ func mkBuf(s string) *buffer.Buffer {
 
 func TestMoveLeftWithinLine(t *testing.T) {
 	cs := mkCursor(0, 3)
-	moveLeft(&cs, mkBuf("abcdef"))
+	moveLeft(&cs, mkBuf("abcdef"), nil)
 	if cs.Cursor.ByteCol != 2 || cs.Cursor.Line != 0 {
 		t.Errorf("got %+v", cs.Cursor)
 	}
@@ -32,7 +32,7 @@ func TestMoveLeftWithinLine(t *testing.T) {
 
 func TestMoveLeftCrossLine(t *testing.T) {
 	cs := mkCursor(1, 0)
-	moveLeft(&cs, mkBuf("abc\ndef"))
+	moveLeft(&cs, mkBuf("abc\ndef"), nil)
 	if cs.Cursor.Line != 0 || cs.Cursor.ByteCol != 3 {
 		t.Errorf("got %+v", cs.Cursor)
 	}
@@ -40,7 +40,7 @@ func TestMoveLeftCrossLine(t *testing.T) {
 
 func TestMoveLeftAtStart(t *testing.T) {
 	cs := mkCursor(0, 0)
-	moveLeft(&cs, mkBuf("abc"))
+	moveLeft(&cs, mkBuf("abc"), nil)
 	if cs.Cursor != (buffer.Position{}) {
 		t.Errorf("got %+v", cs.Cursor)
 	}
@@ -48,7 +48,7 @@ func TestMoveLeftAtStart(t *testing.T) {
 
 func TestMoveRightCrossLine(t *testing.T) {
 	cs := mkCursor(0, 3)
-	moveRight(&cs, mkBuf("abc\ndef"))
+	moveRight(&cs, mkBuf("abc\ndef"), nil)
 	if cs.Cursor.Line != 1 || cs.Cursor.ByteCol != 0 {
 		t.Errorf("got %+v", cs.Cursor)
 	}
@@ -56,7 +56,7 @@ func TestMoveRightCrossLine(t *testing.T) {
 
 func TestMoveRightAtEnd(t *testing.T) {
 	cs := mkCursor(0, 3)
-	moveRight(&cs, mkBuf("abc"))
+	moveRight(&cs, mkBuf("abc"), nil)
 	if cs.Cursor.ByteCol != 3 || cs.Cursor.Line != 0 {
 		t.Errorf("got %+v", cs.Cursor)
 	}
@@ -89,7 +89,7 @@ func TestMoveDownPastEnd(t *testing.T) {
 func TestBackspaceMidLine(t *testing.T) {
 	buf := mkBuf("hello")
 	cs := mkCursor(0, 3)
-	backspace(&cs, buf)
+	backspace(&cs, buf, nil)
 	if buf.String() != "helo" {
 		t.Errorf("content=%q", buf.String())
 	}
@@ -101,7 +101,7 @@ func TestBackspaceMidLine(t *testing.T) {
 func TestBackspaceJoinsLines(t *testing.T) {
 	buf := mkBuf("foo\nbar")
 	cs := mkCursor(1, 0)
-	backspace(&cs, buf)
+	backspace(&cs, buf, nil)
 	if buf.String() != "foobar" {
 		t.Errorf("content=%q", buf.String())
 	}
@@ -113,7 +113,7 @@ func TestBackspaceJoinsLines(t *testing.T) {
 func TestBackspaceAtStartNoop(t *testing.T) {
 	buf := mkBuf("abc")
 	cs := mkCursor(0, 0)
-	backspace(&cs, buf)
+	backspace(&cs, buf, nil)
 	if buf.String() != "abc" {
 		t.Errorf("content=%q", buf.String())
 	}
@@ -122,7 +122,7 @@ func TestBackspaceAtStartNoop(t *testing.T) {
 func TestDeleteForwardJoinsLines(t *testing.T) {
 	buf := mkBuf("foo\nbar")
 	cs := mkCursor(0, 3)
-	deleteForward(&cs, buf)
+	deleteForward(&cs, buf, nil)
 	if buf.String() != "foobar" {
 		t.Errorf("content=%q", buf.String())
 	}
@@ -134,7 +134,7 @@ func TestDeleteForwardJoinsLines(t *testing.T) {
 func TestDeleteForwardAtEOFNoop(t *testing.T) {
 	buf := mkBuf("abc")
 	cs := mkCursor(0, 3)
-	deleteForward(&cs, buf)
+	deleteForward(&cs, buf, nil)
 	if buf.String() != "abc" {
 		t.Errorf("content=%q", buf.String())
 	}

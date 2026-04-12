@@ -45,8 +45,8 @@ func TestIsASCII(t *testing.T) {
 		{"\x80", false},
 	}
 	for _, c := range cases {
-		if got := isASCII([]byte(c.in)); got != c.want {
-			t.Errorf("isASCII(%q)=%v want %v", c.in, got, c.want)
+		if got := IsASCII([]byte(c.in)); got != c.want {
+			t.Errorf("IsASCII(%q)=%v want %v", c.in, got, c.want)
 		}
 	}
 }

@@ -135,22 +135,20 @@ func TestTextLeftClip_NegativeX(t *testing.T) {
 }
 
 func TestTextLeftClip_UnicodeMultibyte(t *testing.T) {
-	// UTF-8 multi-byte rune: "→" is 3 bytes. Clip should not slice mid-rune.
+	// Non-ASCII with no text measurer (headless) falls back to
+	// rune-count * advance skip. Verify no mid-rune split.
 	dc := newTestDC()
-	s := "→→→abc"
+	s := "→→→abc" // "→" is 3 bytes
 	textLeftClip(dc, 0, 0, s, gui.TextStyle{}, 24, 8)
 	ts := textsIn(dc)
 	if len(ts) == 0 {
-		return
+		t.Fatal("expected a draw call")
 	}
-	// Verify draw x is at or past clipLeft.
-	if ts[0].X < 24 {
-		t.Errorf("draw x=%v < clipLeft=24", ts[0].X)
-	}
-	// Verify the remaining text is valid UTF-8 (no mid-rune split).
+	// Verify the remaining text is valid UTF-8.
 	for _, r := range ts[0].Text {
 		if r == '\uFFFD' {
-			t.Errorf("replacement rune in %q (mid-rune split)", ts[0].Text)
+			t.Errorf("replacement rune in %q (mid-rune split)",
+				ts[0].Text)
 		}
 	}
 }

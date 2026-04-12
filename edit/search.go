@@ -597,6 +597,22 @@ func handleSearchChar(st *editorState, buf *buffer.Buffer, r rune) {
 	}
 }
 
+// handleSearchString inserts a string (e.g. IME commit) into
+// the active search field.
+func handleSearchString(st *editorState, buf *buffer.Buffer, s string) {
+	ss := &st.Search
+	ss.clampFieldCursor()
+	field := ss.activeField()
+	if len(*field)+len(s) > maxFieldLen {
+		return
+	}
+	*field = spliceField(*field, ss.FieldCursor, ss.FieldCursor, s)
+	ss.FieldCursor += len(s)
+	if !ss.FocusReplace {
+		recomputeMatches(st, buf)
+	}
+}
+
 // spliceField replaces s[lo:hi] with repl in a single allocation.
 // Out-of-bounds lo/hi are clamped.
 func spliceField(s string, lo, hi int, repl string) string {
