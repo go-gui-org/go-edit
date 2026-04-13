@@ -90,6 +90,7 @@ func editorOnDraw(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawContext) 
 		// the gutter overlay can redraw them without re-computing wraps.
 		var gutterBuf [64]gutterEntry
 		gutterEntries := gutterBuf[:0]
+		stickyH := frame.stickyH
 
 		for visRow <= lastVis && i < total {
 			lineBytes := buf.Line(i)
@@ -105,6 +106,13 @@ func editorOnDraw(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawContext) 
 			for sr := curSubRow; sr < numSubRows &&
 				visRow <= lastVis; sr++ {
 				y := float32(visRow)*lh - st.ScrollY
+
+				// Skip lines fully behind the sticky scroll overlay
+				// to prevent subpixel text bleed-through.
+				if stickyH > 0 && y+lh <= stickyH {
+					visRow++
+					continue
+				}
 
 				if cfg.ShowLineNumbers && sr == 0 {
 					gutterEntries = append(gutterEntries,
@@ -558,7 +566,7 @@ func drawCursors(
 	// Sticky scroll headers occupy the top rows of the viewport
 	// and occlude any cursor that would draw behind them. Skip
 	// cursors whose canvas-local y falls inside that band.
-	stickyH := float32(len(frame.stickyLines)) * lh
+	stickyH := frame.stickyH
 	for ci := range st.Cursors {
 		cs := &st.Cursors[ci]
 		if hasFolds && isFolded(folds, cs.Cursor.Line) {
@@ -623,7 +631,7 @@ func drawStickyScroll(
 		return
 	}
 	textX := frame.gutterW + frame.padLeft - st.ScrollX
-	stickyH := float32(len(frame.stickyLines)) * lh
+	stickyH := frame.stickyH
 
 	// Background.
 	dc.FilledRect(0, 0, dc.Width, stickyH, rt.stickyBg)

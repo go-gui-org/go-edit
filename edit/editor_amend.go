@@ -134,6 +134,7 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 
 		computeBracketMatch(cfg, &st, frame)
 		computeStickyScroll(cfg, &st, frame, lh)
+		frame.stickyH = float32(len(frame.stickyLines)) * lh
 
 		// Help entries (computed once, reused across frames).
 		if frame.helpEntries == nil {

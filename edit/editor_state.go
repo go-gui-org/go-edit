@@ -79,6 +79,9 @@ type editorFrameData struct {
 	padLeft    float32 // padding between gutter and text
 	valid      bool    // set true by AmendLayout; OnDraw no-ops if false
 
+	// Sticky scroll height (transient per-frame).
+	stickyH float32
+
 	// Bracket match (transient per-frame, not persisted).
 	bracketMatch [2]buffer.Position // [source, match]
 	bracketFound bool
