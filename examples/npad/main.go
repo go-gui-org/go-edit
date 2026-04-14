@@ -8,6 +8,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -45,6 +46,15 @@ type appState struct {
 
 	ChromaStyleIdx int
 	RecentFiles    []string
+
+	// themeCache is the EditorTheme derived from ChromaStyleIdx.
+	// Recomputed only when the style changes (see invalidateTheme).
+	themeCache    edit.EditorTheme
+	themeCacheSet bool
+
+	// decosBuf is a one-element scratch slice reused each frame to
+	// hand the highlighter to edit.Editor without per-frame alloc.
+	decosBuf [1]buffer.DecorationProvider
 
 	// closing is true while a save/discard/cancel dialog spawned by
 	// OnCloseRequest is open; suppresses stacked dialogs from
@@ -108,19 +118,7 @@ func main() {
 	}
 	loadConfig(st)
 
-	// Load file from argv or create empty buffer.
-	if len(os.Args) > 1 {
-		buf, err := buffer.LoadFile(os.Args[1])
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		st.Buf = buf
-		st.FilePath = os.Args[1]
-	} else {
-		st.Buf = buffer.New()
-	}
-	st.Buf.EnableUndo(nil)
+	loadInitialBuffer(st)
 
 	title := windowTitle(st)
 
@@ -138,57 +136,84 @@ func main() {
 			w.UpdateView(mainView)
 			w.SetIDFocus(focusEditor)
 		},
-		OnCloseRequest: func(w *gui.Window) {
-			s := gui.State[appState](w)
-			switch decideClose(s) {
-			case closeIgnore:
-				return
-			case closeNow:
-				w.Close()
-				return
-			}
-			s.closing = true
-			w.NativeSaveDiscardDialog(gui.NativeSaveDiscardDialogCfg{
-				Title: "Unsaved Changes",
-				Body:  "Save changes before closing?",
-				Level: gui.AlertWarning,
-				OnDone: func(r gui.NativeAlertResult, w *gui.Window) {
-					s := gui.State[appState](w)
-					s.closing = false
-					switch r.Status {
-					case gui.DialogOK:
-						if s.FilePath != "" {
-							doSave(w, s.FilePath)
-							// doSave shows an error dialog and leaves
-							// the buffer dirty on failure; keep the
-							// window open so the user can retry.
-							if shouldFinishClose(s) {
-								w.Close()
-							}
-							return
-						}
-						w.NativeSaveDialog(gui.NativeSaveDialogCfg{
-							Title:            "Save As",
-							ConfirmOverwrite: true,
-							OnDone: func(r gui.NativeDialogResult, w *gui.Window) {
-								if r.Status != gui.DialogOK || len(r.Paths) == 0 {
-									return
-								}
-								doSave(w, r.Paths[0].Path)
-								if shouldFinishClose(s) {
-									w.Close()
-								}
-							},
-						})
-					case gui.DialogDiscard:
-						w.Close()
-					}
-				},
-			})
-		},
+		OnCloseRequest: onCloseRequest,
 	})
 
 	backend.RunApp(gApp, w)
+}
+
+// onCloseRequest handles window close, prompting to save any
+// unsaved changes before exit.
+func onCloseRequest(w *gui.Window) {
+	s := gui.State[appState](w)
+	switch decideClose(s) {
+	case closeIgnore:
+		return
+	case closeNow:
+		w.Close()
+		return
+	}
+	s.closing = true
+	w.NativeSaveDiscardDialog(gui.NativeSaveDiscardDialogCfg{
+		Title: "Unsaved Changes",
+		Body:  "Save changes before closing?",
+		Level: gui.AlertWarning,
+		OnDone: func(r gui.NativeAlertResult, w *gui.Window) {
+			s := gui.State[appState](w)
+			s.closing = false
+			// closeAfterSave runs Close only when the buffer is
+			// clean; on save failure (still dirty) keep the window
+			// open so the user can retry.
+			closeAfterSave := func() {
+				if shouldFinishClose(s) {
+					w.Close()
+				}
+			}
+			switch r.Status {
+			case gui.DialogOK:
+				if s.FilePath != "" {
+					doSave(w, s.FilePath)
+					closeAfterSave()
+					return
+				}
+				w.NativeSaveDialog(gui.NativeSaveDialogCfg{
+					Title:            "Save As",
+					ConfirmOverwrite: true,
+					OnDone: func(r gui.NativeDialogResult, w *gui.Window) {
+						if r.Status != gui.DialogOK || len(r.Paths) == 0 {
+							return
+						}
+						doSave(w, r.Paths[0].Path)
+						closeAfterSave()
+					},
+				})
+			case gui.DialogDiscard:
+				w.Close()
+			}
+		},
+	})
+}
+
+// loadInitialBuffer loads the file named on the command line, or
+// starts with an empty buffer. Exits on load error.
+func loadInitialBuffer(st *appState) {
+	if len(os.Args) > 1 && os.Args[1] != "" {
+		path := os.Args[1]
+		if len(path) > maxPathBytes {
+			fmt.Fprintln(os.Stderr, "path too long")
+			os.Exit(1)
+		}
+		buf, err := buffer.LoadFile(path)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		st.Buf = buf
+		st.FilePath = path
+	} else {
+		st.Buf = buffer.New()
+	}
+	st.Buf.EnableUndo(nil)
 }
 
 // syncTitle updates the OS window title if it differs from the
@@ -214,24 +239,56 @@ func windowTitle(s *appState) string {
 // createHighlighter builds a Highlighter for the current buffer
 // and chroma style. Returns nil if no lexer matches.
 func createHighlighter(s *appState) *highlight.Highlighter {
-	styleName := chromaStyleNames[s.ChromaStyleIdx]
-	style := styles.Get(styleName)
+	style := styles.Get(currentStyleName(s))
 	return highlight.New(s.Buf, "", style)
 }
 
-// editorTheme builds an EditorTheme from the active chroma style.
+// currentStyleName returns the active chroma style name, or "" if
+// the registry is empty or the index is out of range. Guards against
+// a panic in the (theoretical) empty-registry case.
+func currentStyleName(s *appState) string {
+	if len(chromaStyleNames) == 0 ||
+		s.ChromaStyleIdx < 0 ||
+		s.ChromaStyleIdx >= len(chromaStyleNames) {
+		return ""
+	}
+	return chromaStyleNames[s.ChromaStyleIdx]
+}
+
+// editorTheme returns the EditorTheme for the active chroma style,
+// caching the result until invalidateTheme clears it.
 func editorTheme(s *appState) edit.EditorTheme {
-	style := styles.Get(chromaStyleNames[s.ChromaStyleIdx])
-	if style == nil {
-		return edit.EditorTheme{}
+	if s.themeCacheSet {
+		return s.themeCache
 	}
-	bg := style.Get(chroma.Background).Background
-	if !bg.IsSet() {
-		return edit.EditorTheme{}
+	style := styles.Get(currentStyleName(s))
+	var t edit.EditorTheme
+	if style != nil {
+		bg := style.Get(chroma.Background).Background
+		if bg.IsSet() {
+			t.Background = gui.RGBA(bg.Red(), bg.Green(), bg.Blue(), 255)
+		}
 	}
-	return edit.EditorTheme{
-		Background: gui.RGBA(bg.Red(), bg.Green(), bg.Blue(), 255),
+	s.themeCache = t
+	s.themeCacheSet = true
+	return t
+}
+
+// invalidateTheme drops the cached EditorTheme; call after any
+// ChromaStyleIdx change.
+func invalidateTheme(s *appState) {
+	s.themeCacheSet = false
+}
+
+// resetHighlighter closes the current highlighter (if any) and
+// rebuilds it for the current buffer/style. Centralises the
+// close-then-create dance done by doNew/openFile/doSave.
+func resetHighlighter(s *appState) {
+	if s.HL != nil {
+		s.HL.Close()
+		s.HL = nil
 	}
+	s.HL = createHighlighter(s)
 }
 
 // ---- Main View ----
@@ -250,7 +307,8 @@ func mainView(w *gui.Window) gui.View {
 
 	var decos []buffer.DecorationProvider
 	if s.HL != nil {
-		decos = []buffer.DecorationProvider{s.HL}
+		s.decosBuf[0] = s.HL
+		decos = s.decosBuf[:]
 	}
 
 	editorView := edit.Editor(edit.EditorCfg{
@@ -475,14 +533,10 @@ func cmdNew(w *gui.Window) {
 
 func doNew(w *gui.Window) {
 	s := gui.State[appState](w)
-	if s.HL != nil {
-		s.HL.Close()
-		s.HL = nil
-	}
 	s.Buf = buffer.New()
 	s.Buf.EnableUndo(nil)
 	s.FilePath = ""
-	s.HL = createHighlighter(s)
+	resetHighlighter(s)
 	syncTitle(w, s)
 	w.UpdateWindow()
 }
@@ -515,20 +569,17 @@ func openFile(w *gui.Window, path string) {
 	if err != nil {
 		w.NativeMessageDialog(gui.NativeMessageDialogCfg{
 			Title: "Error",
-			Body:  fmt.Sprintf("Failed to open file:\n%v", err),
+			Body:  fmt.Sprintf("Failed to open %s:\n%v", path, err),
 			Level: gui.AlertCritical,
 		})
 		return
 	}
 
 	s := gui.State[appState](w)
-	if s.HL != nil {
-		s.HL.Close()
-	}
 	buf.EnableUndo(nil)
 	s.Buf = buf
 	s.FilePath = path
-	s.HL = createHighlighter(s)
+	resetHighlighter(s)
 	addRecentFile(s, path)
 	saveConfig(s)
 	rebuildMenu(s, w)
@@ -567,16 +618,18 @@ func cmdSaveAs(w *gui.Window) {
 func doSave(w *gui.Window, path string) {
 	s := gui.State[appState](w)
 
-	// Update file path before saving so SaveFile uses it.
-	s.Buf.Props.FilePath = path
 	if err := s.Buf.SaveFile(path); err != nil {
 		w.NativeMessageDialog(gui.NativeMessageDialogCfg{
 			Title: "Error",
-			Body:  fmt.Sprintf("Failed to save:\n%v", err),
+			Body:  fmt.Sprintf("Failed to save %s:\n%v", path, err),
 			Level: gui.AlertCritical,
 		})
 		return
 	}
+	// Only commit the new path after a successful save; otherwise a
+	// failed Save-As leaves Props.FilePath pointing at a file the
+	// disk doesn't reflect.
+	s.Buf.Props.FilePath = path
 	s.Buf.MarkClean()
 
 	oldPath := s.FilePath
@@ -584,14 +637,10 @@ func doSave(w *gui.Window, path string) {
 	addRecentFile(s, path)
 	saveConfig(s)
 
-	// Recreate highlighter if extension changed (new lexer).
-	newExt := filepath.Ext(path)
-	oldExt := filepath.Ext(oldPath)
-	if newExt != oldExt || s.HL == nil {
-		if s.HL != nil {
-			s.HL.Close()
-		}
-		s.HL = createHighlighter(s)
+	// Rebuild highlighter if extension (lexer) changed, or if we
+	// don't yet have one.
+	if filepath.Ext(path) != filepath.Ext(oldPath) || s.HL == nil {
+		resetHighlighter(s)
 	}
 	rebuildMenu(s, w)
 	syncTitle(w, s)
@@ -818,10 +867,8 @@ func handleMenuAction(id string, w *gui.Window) {
 		if _, err := fmt.Sscanf(id, "theme.syntax.%d", &idx); err == nil &&
 			idx >= 0 && idx < len(chromaStyleNames) {
 			s.ChromaStyleIdx = idx
-			if s.HL != nil {
-				s.HL.Close()
-			}
-			s.HL = createHighlighter(s)
+			invalidateTheme(s)
+			resetHighlighter(s)
 			saveConfig(s)
 			rebuildMenu(s, w)
 			w.UpdateView(mainView)
@@ -908,13 +955,14 @@ func loadConfig(s *appState) {
 		return
 	}
 	defer func() { _ = f.Close() }()
-	data := make([]byte, maxConfigBytes+1)
-	n, _ := f.Read(data)
-	if n > maxConfigBytes {
-		return // file too large; ignore
+	// LimitReader bound is +1 so a file at exactly maxConfigBytes
+	// reads fully; anything beyond trips the size check below.
+	data, err := io.ReadAll(io.LimitReader(f, maxConfigBytes+1))
+	if err != nil || len(data) > maxConfigBytes {
+		return
 	}
 	var cfg npadConfig
-	if err := json.Unmarshal(data[:n], &cfg); err != nil {
+	if err := json.Unmarshal(data, &cfg); err != nil {
 		return
 	}
 	if cfg.ChromaStyleIdx >= 0 && cfg.ChromaStyleIdx < len(chromaStyleNames) {
