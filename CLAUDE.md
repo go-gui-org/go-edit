@@ -53,7 +53,7 @@ Tests run fully headless. `examples/basic` is the only CGO-linked target.
 
 ### Type decisions (locked — see ROADMAP Phase -1)
 
-- `buffer.Position` = `{Line, ByteCol int}` — byte offsets, not runes or graphemes. Grapheme-cluster movement is a Phase 2 concern.
+- `buffer.Position` = `{Line, ByteCol int}` — byte offsets, not runes or graphemes. Cursor movement is grapheme-aware via `text.Measurer.NextCursorPos`/`PrevCursorPos` (go-glyph layout); rune-decode fallback when no layout is available.
 - `buffer.Edit` = single `{Range, NewBytes []byte}` shape. No tagged union; insert is `Range.Empty()` + NewBytes, delete is non-empty Range + nil NewBytes.
 - `buffer.Change` is the undo record returned from `Apply`; Phase 3 will consume it.
 - Canonical coordinate space is logical `(line, col)`. Visual `(row, x)` is derived per frame for wrap/folds.

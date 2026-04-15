@@ -90,8 +90,10 @@ Moved to Phase 1 (need a Buffer to exist first):
 
 - [x] `Buffer` as per-line byte-slice store (gap buffer deferred until
       bench pressure — baseline recorded in `buffer_bench_test.go`).
-- [x] Line index; UTF-8 aware. Grapheme-cluster movement deferred to
-      Phase 2; Phase 1 moves by byte.
+- [x] Line index; UTF-8 aware. Grapheme-cluster movement implemented
+      via `text.Measurer.NextCursorPos`/`PrevCursorPos` (go-glyph
+      `layout.MoveCursorLeft`/`Right`); rune-decode fallback when
+      no layout available.
 - [x] Internal `edit/text` package wrapping `gui.TextMeasurer` (not
       go-glyph directly — the measurer already wraps it, and OnDraw has
       no window access, so the indirection is cheaper).
@@ -193,10 +195,14 @@ Architectural notes:
   `DefaultKeymap` maps keys to action IDs; actions are funcs in
   `defaultActions`. `EditorCfg.Keymaps` pushes user layers on top.
 - `Highlighter` in `edit/highlight` is the first `DecorationProvider`.
-  Chroma tokenizes the full buffer; per-line token cache invalidated
-  on any edit. Synchronous viewport-first; background fill deferred.
-  Chroma v2 doesn't expose per-line lexer state, so invalidation
-  retokenizes from the start.
+  Chroma tokenizes the buffer incrementally: `OnEdit` records
+  the earliest dirty line in `dirtyLineStart`; `Decorate` re-lexes
+  from there (backed off via `lineContinues` to a line not inside
+  a multi-line token) to end-of-buffer, capped to viewport +
+  lookahead. Per-line token cache preserves the pristine prefix.
+  Chroma v2 doesn't expose per-line lexer state, hence the
+  continuation-flag back-off. Background fill beyond the viewport
+  is deferred.
 - `OnInvalidate` on `EditorCfg` delivers a `w.RequestRedraw` thunk
   to async providers via `editorAmendLayout`.
 - Hardening: `AddFilter`/`OnEdit` guard nil funcs and double-remove.
@@ -272,7 +278,8 @@ Architectural notes:
 
 - [x] Integrate chroma; map chroma token types → theme styles.
 - [x] Per-line token cache; invalidate on edit using line ranges.
-- [x] Lazy tokenize visible viewport first; background fill.
+- [x] Lazy tokenize visible viewport first. Background fill beyond
+      viewport deferred (see Phase 1.5 note).
 - [x] Language autodetect from filename + content.
 
 ### Phase 5 — Multi-cursor  ☑
@@ -405,7 +412,6 @@ Architectural notes:
 - [x] Diagnostics gutter API (markers, squiggles) — no LSP yet, just an API
       surface for callers to push markers.
 - [x] Theme: derive from go-gui theme; override per-token colors.
-      (Currently hardcoded to "monokai". Needs theme bridge.)
 - [x] Accessibility: a11y tree integration via go-gui NativePlatform.
 - [x] Help screen: keybinding to show shortcut reference as overlay.
       Gathers bindings from DefaultKeymap + user keymaps.
@@ -508,8 +514,6 @@ recommended sequence.
 - [x] Soft-wrap cursor column math. Audit desired-column tracking
       across wrapped rows — Up/Down across a wrapped line resets
       to logical col. Resolves open question.
-- [x] Drag-and-drop file open. Wired via `EditorCfg.OnFileDrop`;
-      npad prompts save on dirty buffer before loading dropped file.
 
 ### Phase 10 — Substrate consumers
 

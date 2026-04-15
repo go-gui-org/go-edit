@@ -166,8 +166,9 @@ func fromRawBytes(raw []byte) (*Buffer, error) {
 // into synthetic continuation lines of MaxLineBytes each; the
 // split is driven by byte length only, not by character
 // boundaries, so a split inside a multi-byte rune is possible
-// but visually benign because all render paths treat bytes as
-// bytes until Phase 2 grapheme support lands.
+// but visually benign because render paths operate on bytes;
+// grapheme-cluster movement happens above the buffer in
+// text.Measurer.
 func FromBytes(raw []byte) *Buffer {
 	if len(raw) == 0 {
 		return New()
