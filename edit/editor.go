@@ -43,10 +43,10 @@ type EditorCfg struct {
 	// the cached Measurer, so any drift between them — for
 	// example, mismatched Typeface or Size — produces visible
 	// per-character gaps. When unset, theme.M5 is used.
-	Font gui.Opt[gui.TextStyle]
-	Decorations      []DecorationProvider
-	Keymaps          []*Keymap         // pushed on top of DefaultKeymap
-	Actions          map[string]Action // additional/override actions
+	Font        gui.Opt[gui.TextStyle]
+	Decorations []DecorationProvider
+	Keymaps     []*Keymap         // pushed on top of DefaultKeymap
+	Actions     map[string]Action // additional/override actions
 	// OnFileDrop is called when a file is dragged and dropped
 	// onto the editor.
 	OnFileDrop func(path string, w *gui.Window)
@@ -98,13 +98,41 @@ func nowOf(cfg EditorCfg) time.Time {
 	return time.Now()
 }
 
+// maxFontSize bounds the override font size to prevent a hostile
+// config from triggering huge-glyph allocations.
+const (
+	minFontSize float32 = 1
+	maxFontSize float32 = 1024
+)
+
+// sanitizeFontSize returns fallback for NaN / non-positive size,
+// otherwise clamps into [minFontSize, maxFontSize].
+func sanitizeFontSize(size, fallback float32) float32 {
+	if size != size || size <= 0 {
+		return fallback
+	}
+	if size > maxFontSize {
+		return maxFontSize
+	}
+	if size < minFontSize {
+		return minFontSize
+	}
+	return size
+}
+
 // editorMonoStyle returns the TextStyle used for all editor text
 // rendering. Both the draw path and the Measurer must use this same
 // style so the cached monospace advance matches rendered glyph width;
 // drift between the two sites causes visible per-character gaps.
-// cfg.Font, when Set, overrides theme.M5 entirely.
+// cfg.Font, when Set, overrides theme.M5; empty Family or invalid
+// Size borrow theme.M5 so the editor never falls back to a
+// proportional system font or zero-size glyphs.
 func editorMonoStyle(cfg EditorCfg, theme gui.Theme) gui.TextStyle {
 	if s, ok := cfg.Font.Value(); ok {
+		if s.Family == "" {
+			s.Family = theme.M5.Family
+		}
+		s.Size = sanitizeFontSize(s.Size, theme.M5.Size)
 		return s
 	}
 	return theme.M5

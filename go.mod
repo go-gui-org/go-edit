@@ -4,14 +4,9 @@ go 1.26.0
 
 require (
 	github.com/alecthomas/chroma/v2 v2.23.1
-	github.com/mike-ward/go-glyph v1.6.5
-	github.com/mike-ward/go-gui v0.12.7
+	github.com/mike-ward/go-glyph v1.7.0
+	github.com/mike-ward/go-gui v0.17.0
 	golang.org/x/text v0.36.0
-)
-
-replace (
-	github.com/mike-ward/go-glyph => ../go-glyph
-	github.com/mike-ward/go-gui => ../go-gui
 )
 
 require (

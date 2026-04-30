@@ -319,7 +319,7 @@ func mainView(w *gui.Window) gui.View {
 
 	mono := gui.CurrentTheme().M5
 	mono.Family = "SF Mono Terminal"
-	mono.Size = 11
+	mono.Size = 12
 
 	editorView := edit.Editor(edit.EditorCfg{
 		IDFocus:          focusEditor,
