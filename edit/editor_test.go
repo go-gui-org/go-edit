@@ -229,7 +229,7 @@ func TestEditor_MeasurerUsesDrawStyle(t *testing.T) {
 		t.Fatal("Measurer is nil after amend")
 	}
 	got := m.Style()
-	want := editorMonoStyle(gui.CurrentTheme())
+	want := editorMonoStyle(EditorCfg{}, gui.CurrentTheme())
 	if got.Size != want.Size {
 		t.Errorf("Measurer style.Size=%v, want %v (draw path style)",
 			got.Size, want.Size)

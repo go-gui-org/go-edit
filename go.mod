@@ -9,6 +9,11 @@ require (
 	golang.org/x/text v0.36.0
 )
 
+replace (
+	github.com/mike-ward/go-glyph => ../go-glyph
+	github.com/mike-ward/go-gui => ../go-gui
+)
+
 require (
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/go-gl/gl v0.0.0-20260331235117-4566fea9a276 // indirect

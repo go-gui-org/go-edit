@@ -35,6 +35,15 @@ type EditorCfg struct {
 	Scrollbar        ScrollbarMode
 	LangConfigs      map[string]LangConfig // keyed by ".ext" or filename
 	Theme            EditorTheme
+	// Font, when Set, overrides the monospace TextStyle used for
+	// all editor text rendering and measurement. The supplied
+	// style fully replaces theme.M5; callers are responsible for
+	// providing a complete TextStyle (Family, Typeface, Size,
+	// Color). The same style is used by both the draw path and
+	// the cached Measurer, so any drift between them — for
+	// example, mismatched Typeface or Size — produces visible
+	// per-character gaps. When unset, theme.M5 is used.
+	Font gui.Opt[gui.TextStyle]
 	Decorations      []DecorationProvider
 	Keymaps          []*Keymap         // pushed on top of DefaultKeymap
 	Actions          map[string]Action // additional/override actions
@@ -93,7 +102,11 @@ func nowOf(cfg EditorCfg) time.Time {
 // rendering. Both the draw path and the Measurer must use this same
 // style so the cached monospace advance matches rendered glyph width;
 // drift between the two sites causes visible per-character gaps.
-func editorMonoStyle(theme gui.Theme) gui.TextStyle {
+// cfg.Font, when Set, overrides theme.M5 entirely.
+func editorMonoStyle(cfg EditorCfg, theme gui.Theme) gui.TextStyle {
+	if s, ok := cfg.Font.Value(); ok {
+		return s
+	}
 	return theme.M5
 }
 

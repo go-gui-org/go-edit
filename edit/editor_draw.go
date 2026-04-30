@@ -31,7 +31,7 @@ func editorOnDraw(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawContext) 
 			return
 		}
 		guiTheme := gui.CurrentTheme()
-		monoStyle := editorMonoStyle(guiTheme)
+		monoStyle := editorMonoStyle(cfg, guiTheme)
 
 		// Help overlay replaces all buffer rendering.
 		if st.HelpActive && st.Measurer != nil {
@@ -561,7 +561,7 @@ func drawCursors(
 		st.ScrollY, dc.Height, lh, visTot)
 	textX := frame.gutterW + frame.padLeft - st.ScrollX
 
-	style := editorMonoStyle(gui.CurrentTheme())
+	style := editorMonoStyle(cfg, gui.CurrentTheme())
 	rt := resolveEditorTheme(cfg.Theme)
 	// Sticky scroll headers occupy the top rows of the viewport
 	// and occlude any cursor that would draw behind them. Skip

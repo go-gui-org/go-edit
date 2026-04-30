@@ -54,7 +54,7 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 			st.Measurer.InvalidateCache()
 		}
 		if st.Measurer == nil {
-			st.Measurer = text.New(w, editorMonoStyle(gui.CurrentTheme()))
+			st.Measurer = text.New(w, editorMonoStyle(cfg, gui.CurrentTheme()))
 			if st.Measurer == nil {
 				// No backend (headless). Bail; draw will no-op.
 				frame.valid = false

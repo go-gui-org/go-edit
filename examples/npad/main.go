@@ -104,8 +104,14 @@ func init() {
 	slices.Sort(chromaStyleNames)
 }
 
+// terminalSFMonoPath is the macOS Terminal.app's bundled SF Mono
+// Terminal font. Not exposed via fontconfig, so register it
+// explicitly so Family = "SF Mono Terminal" resolves.
+const terminalSFMonoPath = "/System/Applications/Utilities/Terminal.app/Contents/Resources/Fonts/SFMono-Terminal.ttf"
+
 func main() {
 	gui.SetTheme(gui.ThemeDarkBordered)
+	gui.RegisterAppFont(terminalSFMonoPath)
 
 	st := &appState{
 		ShowLineNumbers:  true,
@@ -311,6 +317,10 @@ func mainView(w *gui.Window) gui.View {
 		decos = s.decosBuf[:]
 	}
 
+	mono := gui.CurrentTheme().M5
+	mono.Family = "SF Mono Terminal"
+	mono.Size = 11
+
 	editorView := edit.Editor(edit.EditorCfg{
 		IDFocus:          focusEditor,
 		Buffer:           s.Buf,
@@ -326,6 +336,7 @@ func mainView(w *gui.Window) gui.View {
 		StickyScroll:     s.StickyScroll,
 		LangConfigs:      langConfigs,
 		Theme:            editorTheme(s),
+		Font:             gui.Some(mono),
 		Decorations:      decos,
 		OnFileDrop: func(path string, w *gui.Window) {
 			s := gui.State[appState](w)
