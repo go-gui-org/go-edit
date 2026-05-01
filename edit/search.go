@@ -3,6 +3,7 @@ package edit
 import (
 	"bytes"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -370,8 +371,7 @@ func replaceAllMatches(
 	buf.BeginGroup()
 
 	// Reverse order to preserve positions.
-	for i := len(ss.Matches) - 1; i >= 0; i-- {
-		m := ss.Matches[i]
+	for _, m := range slices.Backward(ss.Matches) {
 		replacement := replaceBytes(ss, buf, m)
 		buf.Apply(buffer.Edit{
 			Range:    m,

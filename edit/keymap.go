@@ -1,6 +1,8 @@
 package edit
 
 import (
+	"slices"
+
 	"github.com/mike-ward/go-edit/edit/buffer"
 	"github.com/mike-ward/go-gui/gui"
 )
@@ -106,8 +108,7 @@ func (ks *KeymapStack) Pop() *Keymap {
 // Reader-only after Push has built the lookup maps.
 func (ks *KeymapStack) Resolve(key gui.KeyCode, mods gui.Modifier) (string, bool) {
 	pk := packBinding(key, mods)
-	for i := len(ks.layers) - 1; i >= 0; i-- {
-		layer := ks.layers[i]
+	for _, layer := range slices.Backward(ks.layers) {
 		if id, ok := layer.lookup[pk]; ok {
 			return id, true
 		}

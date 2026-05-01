@@ -26,8 +26,8 @@ func gatherHelp(stack *KeymapStack) []helpEntry {
 	var entries []helpEntry
 
 	// Walk top→bottom so higher-priority layers win.
-	for i := len(stack.layers) - 1; i >= 0; i-- {
-		for _, b := range stack.layers[i].Bindings {
+	for _, layer := range slices.Backward(stack.layers) {
+		for _, b := range layer.Bindings {
 			if seen[b.ActionID] {
 				continue
 			}
