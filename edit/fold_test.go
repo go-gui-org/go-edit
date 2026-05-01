@@ -1,6 +1,7 @@
 package edit
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/mike-ward/go-edit/edit/buffer"
@@ -304,8 +305,7 @@ func linearNextVisible(folds []FoldRange, line int) int {
 }
 
 func linearPrevVisible(folds []FoldRange, line int) int {
-	for i := len(folds) - 1; i >= 0; i-- {
-		f := folds[i]
+	for _, f := range slices.Backward(folds) {
 		if line > f.StartLine && line <= f.EndLine {
 			return f.StartLine
 		}

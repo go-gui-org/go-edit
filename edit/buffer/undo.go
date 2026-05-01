@@ -1,6 +1,9 @@
 package buffer
 
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 // CursorPair holds a cursor and anchor position for one cursor
 // in a multi-cursor undo record.
@@ -159,8 +162,7 @@ func (b *Buffer) Undo() UndoResult {
 	us.undo = us.undo[:len(us.undo)-1]
 
 	// Replay changes in reverse, inverting each.
-	for i := len(entry.changes) - 1; i >= 0; i-- {
-		c := entry.changes[i]
+	for _, c := range slices.Backward(entry.changes) {
 		b.applyCore(Edit{
 			Range:    c.AppliedRange,
 			NewBytes: c.OldBytes,
