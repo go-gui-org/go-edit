@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.10.3 — 2026-05-24
+
+- scroll: keep cursor 8px from horizontal viewport edge.
+- deps: bump go-gui to v0.20.2, go-glyph to v1.8.0.
+
 ## v0.10.2 — 2026-05-17
 
 - deps: bump go-gui to v0.19.1 (scroll phase bridge, context menu focus fix).
