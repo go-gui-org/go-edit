@@ -1,6 +1,6 @@
 package edit
 
-import "github.com/mike-ward/go-gui/gui"
+import "github.com/go-gui-org/go-gui/gui"
 
 // TriggerAction queues an action by ID to execute on the next frame
 // for the editor instance identified by focusID. Use to dispatch

@@ -1,6 +1,6 @@
 package edit
 
-import "github.com/mike-ward/go-edit/edit/buffer"
+import "github.com/go-gui-org/go-edit/edit/buffer"
 
 // AutoClosePair defines a pair of characters that auto-close.
 type AutoClosePair struct{ Open, Close byte }

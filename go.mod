@@ -1,11 +1,11 @@
-module github.com/mike-ward/go-edit
+module github.com/go-gui-org/go-edit
 
 go 1.26.0
 
 require (
 	github.com/alecthomas/chroma/v2 v2.23.1
-	github.com/mike-ward/go-glyph v1.8.0
-	github.com/mike-ward/go-gui v0.20.2
+	github.com/go-gui-org/go-glyph v1.9.0
+	github.com/go-gui-org/go-gui v0.21.0
 	golang.org/x/text v0.36.0
 )
 
@@ -20,4 +20,9 @@ require (
 	github.com/yuin/goldmark v1.8.2 // indirect
 	github.com/yuin/goldmark-emoji v1.0.6 // indirect
 	golang.org/x/sys v0.43.0 // indirect
+)
+
+replace (
+	github.com/go-gui-org/go-glyph => ../go-glyph
+	github.com/go-gui-org/go-gui => ../go-gui
 )

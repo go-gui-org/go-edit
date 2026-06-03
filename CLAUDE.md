@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-go-edit is a code editor widget for [go-gui](https://github.com/mike-ward/go-gui). Sibling repo at `../go-gui`; local `replace` directives in `go.mod` point there and at `../go-glyph`. Syntax highlighting is planned via chroma; text shaping via go-glyph (through go-gui's `TextMeasurer`).
+go-edit is a code editor widget for [go-gui](https://github.com/go-gui-org/go-gui). Sibling repo at `../go-gui`; local `replace` directives in `go.mod` point there and at `../go-glyph`. Syntax highlighting is planned via chroma; text shaping via go-glyph (through go-gui's `TextMeasurer`).
 
 ## Common commands
 

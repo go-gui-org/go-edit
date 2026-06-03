@@ -1,6 +1,6 @@
 package edit
 
-import "github.com/mike-ward/go-gui/gui"
+import "github.com/go-gui-org/go-gui/gui"
 
 // drawScrollbar draws vertical and horizontal scrollbar overlays.
 // Both are semi-transparent overlays; no layout metrics are affected.

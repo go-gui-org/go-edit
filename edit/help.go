@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/mike-ward/go-gui/gui"
+	"github.com/go-gui-org/go-gui/gui"
 )
 
 // helpEntry is one row in the help screen.

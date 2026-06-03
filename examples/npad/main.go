@@ -16,11 +16,11 @@ import (
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/styles"
-	"github.com/mike-ward/go-edit/edit"
-	"github.com/mike-ward/go-edit/edit/buffer"
-	"github.com/mike-ward/go-edit/edit/highlight"
-	"github.com/mike-ward/go-gui/gui"
-	"github.com/mike-ward/go-gui/gui/backend"
+	"github.com/go-gui-org/go-edit/edit"
+	"github.com/go-gui-org/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-edit/edit/highlight"
+	"github.com/go-gui-org/go-gui/gui"
+	"github.com/go-gui-org/go-gui/gui/backend"
 )
 
 const (
@@ -924,7 +924,7 @@ func handleMenuAction(id string, w *gui.Window) {
 			Title: "About npad",
 			Body: "npad — a go-edit showcase editor\n" +
 				"Built with go-gui\n\n" +
-				"https://github.com/mike-ward/go-edit",
+				"https://github.com/go-gui-org/go-edit",
 			Level: gui.AlertInfo,
 		})
 	}

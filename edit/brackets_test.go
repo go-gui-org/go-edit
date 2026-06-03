@@ -3,7 +3,7 @@ package edit
 import (
 	"testing"
 
-	"github.com/mike-ward/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-edit/edit/buffer"
 )
 
 func bufFromLines(lines ...string) *buffer.Buffer {

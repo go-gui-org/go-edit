@@ -3,8 +3,8 @@ package edit
 import (
 	"testing"
 
-	"github.com/mike-ward/go-edit/edit/buffer"
-	"github.com/mike-ward/go-gui/gui"
+	"github.com/go-gui-org/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-gui/gui"
 )
 
 // wrapWidth 80px with 8px advance = 10 chars per visual row.

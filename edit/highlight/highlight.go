@@ -8,7 +8,7 @@ import (
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
-	"github.com/mike-ward/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-edit/edit/buffer"
 )
 
 // Token is a pre-computed styled span within a line.

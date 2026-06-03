@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/mike-ward/go-gui/gui"
+	"github.com/go-gui-org/go-gui/gui"
 )
 
 // dc returns a minimal DrawContext sufficient for textLeftClip tests.

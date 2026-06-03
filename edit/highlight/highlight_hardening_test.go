@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/alecthomas/chroma/v2"
-	"github.com/mike-ward/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-edit/edit/buffer"
 )
 
 func TestDecorate_NegativeViewport(t *testing.T) {

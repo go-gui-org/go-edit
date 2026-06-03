@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mike-ward/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-edit/edit/buffer"
 )
 
 func TestResolveLangConfigByExtension(t *testing.T) {

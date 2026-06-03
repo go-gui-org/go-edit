@@ -1,8 +1,8 @@
 # go-edit
 
-A code editor widget for [go-gui](https://github.com/mike-ward/go-gui). Pure Go,
+A code editor widget for [go-gui](https://github.com/go-gui-org/go-gui). Pure Go,
 no CGO. Syntax highlighting via [chroma](https://github.com/alecthomas/chroma).
-Text shaping via [go-glyph](https://github.com/mike-ward/go-glyph).
+Text shaping via [go-glyph](https://github.com/go-gui-org/go-glyph).
 
 ![npad screenshot](docs/screenshot.png)
 
@@ -41,9 +41,9 @@ File size limit: 32 MiB. Headless-testable; no backend required for unit tests.
 
 ```go
 import (
-    "github.com/mike-ward/go-edit/edit"
-    "github.com/mike-ward/go-edit/edit/buffer"
-    "github.com/mike-ward/go-edit/edit/highlight"
+    "github.com/go-gui-org/go-edit/edit"
+    "github.com/go-gui-org/go-edit/edit/buffer"
+    "github.com/go-gui-org/go-edit/edit/highlight"
 )
 
 buf := buffer.New()

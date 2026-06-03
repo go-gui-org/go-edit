@@ -7,9 +7,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/mike-ward/go-edit/edit/buffer"
-	"github.com/mike-ward/go-edit/edit/text"
-	"github.com/mike-ward/go-gui/gui"
+	"github.com/go-gui-org/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-edit/edit/text"
+	"github.com/go-gui-org/go-gui/gui"
 )
 
 // resetBlink stamps the current time onto editorState as

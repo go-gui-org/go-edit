@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mike-ward/go-edit/edit/buffer"
-	"github.com/mike-ward/go-gui/gui"
+	"github.com/go-gui-org/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-gui/gui"
 )
 
 // maxCursors caps the number of simultaneous cursors to prevent

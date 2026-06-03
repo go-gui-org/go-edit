@@ -1,6 +1,6 @@
 package edit
 
-import "github.com/mike-ward/go-edit/edit/buffer"
+import "github.com/go-gui-org/go-edit/edit/buffer"
 
 // Extension substrate types re-exported from edit/buffer.
 // These are the stable public API; edit/buffer has no

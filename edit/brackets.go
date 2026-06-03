@@ -1,6 +1,6 @@
 package edit
 
-import "github.com/mike-ward/go-edit/edit/buffer"
+import "github.com/go-gui-org/go-edit/edit/buffer"
 
 // maxBracketScan limits how many bytes the bracket matcher will
 // traverse before giving up. Prevents pathological scans on

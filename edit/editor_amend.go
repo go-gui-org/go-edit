@@ -3,8 +3,8 @@ package edit
 import (
 	"unsafe"
 
-	"github.com/mike-ward/go-edit/edit/text"
-	"github.com/mike-ward/go-gui/gui"
+	"github.com/go-gui-org/go-edit/edit/text"
+	"github.com/go-gui-org/go-gui/gui"
 )
 
 // checkDoubleMount panics if the same Editor(cfg) view was inserted

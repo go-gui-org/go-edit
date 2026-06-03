@@ -1,6 +1,6 @@
 # go-edit ROADMAP
 
-Code editor widget for [go-gui](https://github.com/mike-ward/go-gui). Pure Go,
+Code editor widget for [go-gui](https://github.com/go-gui-org/go-gui). Pure Go,
 no CGO. Syntax highlighting via [chroma](https://github.com/alecthomas/chroma).
 
 ## Design tenets
@@ -69,7 +69,7 @@ Still open at this layer:
 
 ### Phase 0 — Skeleton  ☑
 
-- [x] `go mod init github.com/mike-ward/go-edit`; replace directive to local
+- [x] `go mod init github.com/go-gui-org/go-edit`; replace directive to local
       go-gui / go-glyph.
 - [x] Package layout: `edit/`, `edit/buffer/`, `edit/highlight/`,
       `edit/text/`, `edit/internal/`, `examples/basic/`.

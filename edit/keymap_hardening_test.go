@@ -3,7 +3,7 @@ package edit
 import (
 	"testing"
 
-	"github.com/mike-ward/go-gui/gui"
+	"github.com/go-gui-org/go-gui/gui"
 )
 
 func TestKeymapStack_PushNil(t *testing.T) {

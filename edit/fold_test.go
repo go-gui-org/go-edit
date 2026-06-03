@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/mike-ward/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-edit/edit/buffer"
 )
 
 func TestFoldRangeAt(t *testing.T) {

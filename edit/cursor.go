@@ -1,6 +1,6 @@
 package edit
 
-import "github.com/mike-ward/go-edit/edit/buffer"
+import "github.com/go-gui-org/go-edit/edit/buffer"
 
 // CursorState holds position, selection anchor, and sticky column
 // for one cursor. Multiple CursorStates enable multi-cursor editing.

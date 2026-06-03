@@ -3,9 +3,9 @@ package edit
 import (
 	"testing"
 
-	"github.com/mike-ward/go-edit/edit/buffer"
-	"github.com/mike-ward/go-edit/edit/internal/fakewin"
-	"github.com/mike-ward/go-gui/gui"
+	"github.com/go-gui-org/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-edit/edit/internal/fakewin"
+	"github.com/go-gui-org/go-gui/gui"
 )
 
 // sendIMEChar dispatches an IME commit event through the driver.

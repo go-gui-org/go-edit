@@ -3,7 +3,7 @@ package edit
 import (
 	"bytes"
 
-	"github.com/mike-ward/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-edit/edit/buffer"
 )
 
 // maxIndentWidth caps the indent width to prevent pathological

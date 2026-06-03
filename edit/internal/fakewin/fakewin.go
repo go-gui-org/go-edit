@@ -9,8 +9,8 @@ package fakewin
 import (
 	"unicode/utf8"
 
-	"github.com/mike-ward/go-glyph"
-	"github.com/mike-ward/go-gui/gui"
+	"github.com/go-gui-org/go-glyph"
+	"github.com/go-gui-org/go-gui/gui"
 )
 
 // Fake measurer constants (pixels).

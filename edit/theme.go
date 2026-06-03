@@ -1,6 +1,6 @@
 package edit
 
-import "github.com/mike-ward/go-gui/gui"
+import "github.com/go-gui-org/go-gui/gui"
 
 // EditorTheme maps editor visual elements to colors. Zero-value
 // fields mean "use hardcoded default" (backward compat).

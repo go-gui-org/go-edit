@@ -1,6 +1,6 @@
 package edit
 
-import "github.com/mike-ward/go-edit/edit/buffer"
+import "github.com/go-gui-org/go-edit/edit/buffer"
 
 // cursorScrollPad is the minimum pixel gap kept between the primary
 // cursor and the horizontal viewport edge when scrolling.

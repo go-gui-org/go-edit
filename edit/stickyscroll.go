@@ -3,7 +3,7 @@ package edit
 import (
 	"slices"
 
-	"github.com/mike-ward/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-edit/edit/buffer"
 )
 
 // defaultStickyMax is the maximum number of sticky scroll lines.

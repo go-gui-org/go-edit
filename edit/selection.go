@@ -1,6 +1,6 @@
 package edit
 
-import "github.com/mike-ward/go-edit/edit/buffer"
+import "github.com/go-gui-org/go-edit/edit/buffer"
 
 // orderedRange returns a range with Start <= End.
 func orderedRange(a, b buffer.Position) buffer.Range {

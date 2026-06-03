@@ -1,6 +1,6 @@
 package edit
 
-import "github.com/mike-ward/go-gui/gui"
+import "github.com/go-gui-org/go-gui/gui"
 
 // DefaultKeymap contains the base key bindings matching the
 // original hardcoded switch in editorOnKeyDown.

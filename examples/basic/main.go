@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mike-ward/go-edit/edit"
-	"github.com/mike-ward/go-edit/edit/buffer"
-	"github.com/mike-ward/go-gui/gui"
-	"github.com/mike-ward/go-gui/gui/backend"
+	"github.com/go-gui-org/go-edit/edit"
+	"github.com/go-gui-org/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-gui/gui"
+	"github.com/go-gui-org/go-gui/gui/backend"
 )
 
 const sample = `package main

@@ -21,13 +21,13 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          repository: mike-ward/go-gui
+          repository: go-gui-org/go-gui
           ref: v0.9.2
           path: go-gui
 
       - uses: actions/checkout@v4
         with:
-          repository: mike-ward/go-glyph
+          repository: go-gui-org/go-glyph
           ref: v1.6.4
           path: go-glyph
 
@@ -69,13 +69,13 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
-          repository: mike-ward/go-gui
+          repository: go-gui-org/go-gui
           ref: v0.9.2
           path: go-gui
 
       - uses: actions/checkout@v4
         with:
-          repository: mike-ward/go-glyph
+          repository: go-gui-org/go-glyph
           ref: v1.6.4
           path: go-glyph
 
