@@ -110,7 +110,7 @@ func init() {
 const terminalSFMonoPath = "/System/Applications/Utilities/Terminal.app/Contents/Resources/Fonts/SFMono-Terminal.ttf"
 
 func main() {
-	gui.SetTheme(gui.ThemeDarkBordered)
+	gui.SetTheme(gui.ThemeDark.WithBorders(true))
 	gui.RegisterAppFont(terminalSFMonoPath)
 
 	st := &appState{
