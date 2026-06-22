@@ -2,6 +2,7 @@ package edit
 
 import (
 	"time"
+	"unsafe"
 
 	"github.com/go-gui-org/go-edit/edit/buffer"
 	"github.com/go-gui-org/go-edit/edit/text"
@@ -147,7 +148,7 @@ type editorFrameData struct {
 	// panics. Sentinel 0 means "never seen." Tests that reuse
 	// the same *gui.Layout across driver ticks stay benign.
 	frameSeq   uint64
-	lastLayout uintptr
+	lastLayout unsafe.Pointer
 
 	// drawVersion is the DrawCanvas cache key written into the
 	// canvas shape at the end of editorAmendLayout. Computed by

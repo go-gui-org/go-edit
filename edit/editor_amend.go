@@ -18,13 +18,13 @@ func checkDoubleMount(
 	frame *editorFrameData, layout *gui.Layout, w *gui.Window,
 ) {
 	currentFrame := w.FrameCount() + 1
-	var layoutPtr uintptr
+	var layoutPtr unsafe.Pointer
 	if layout != nil {
-		layoutPtr = uintptr(unsafe.Pointer(layout))
+		layoutPtr = unsafe.Pointer(layout)
 	}
 	if frame.frameSeq == currentFrame &&
-		frame.lastLayout != 0 &&
-		layoutPtr != 0 &&
+		frame.lastLayout != nil &&
+		layoutPtr != nil &&
 		frame.lastLayout != layoutPtr {
 		panic("go-edit: Editor view mounted twice in the same " +
 			"frame — give each mount a distinct IDFocus or " +
