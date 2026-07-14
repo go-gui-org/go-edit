@@ -17,7 +17,7 @@ func (d *driver) sendIMEChar(text string) {
 func TestIME_CommitInsertsFull(t *testing.T) {
 	buf := buffer.New()
 	d := newDriver(EditorCfg{
-		IDFocus: 1, Buffer: buf, Width: 400, Height: 200,
+		ID: "e1", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 	d.sendIMEChar("漢字")
@@ -39,11 +39,11 @@ func TestIME_CommitMultiCursor(t *testing.T) {
 		NewBytes: []byte("aa\nbb"),
 	})
 	d := newDriver(EditorCfg{
-		IDFocus: 1, Buffer: buf, Width: 400, Height: 200,
+		ID: "e1", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 
-	st := loadState(d.w, d.cfg.IDFocus)
+	st := loadState(d.w, d.cfg.ID)
 	st.Cursors = []CursorState{
 		{
 			Cursor: buffer.Position{Line: 0, ByteCol: 0},
@@ -54,7 +54,7 @@ func TestIME_CommitMultiCursor(t *testing.T) {
 			Anchor: buffer.Position{Line: 1, ByteCol: 0},
 		},
 	}
-	storeState(d.w, d.cfg.IDFocus, st)
+	storeState(d.w, d.cfg.ID, st)
 
 	d.sendIMEChar("漢字") // multi-codepoint triggers IME path
 	if got := string(buf.Line(0)); got != "漢字aa" {
@@ -72,14 +72,14 @@ func TestIME_CommitInSearchBar(t *testing.T) {
 		NewBytes: []byte("hello world"),
 	})
 	d := newDriver(EditorCfg{
-		IDFocus: 1, Buffer: buf, Width: 400, Height: 200,
+		ID: "e1", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 
 	// Activate search directly.
-	st := loadState(d.w, d.cfg.IDFocus)
+	st := loadState(d.w, d.cfg.ID)
 	st.Search.Active = true
-	storeState(d.w, d.cfg.IDFocus, st)
+	storeState(d.w, d.cfg.ID, st)
 
 	d.sendIMEChar("世界")
 	st = d.state()
@@ -98,7 +98,7 @@ func TestIME_CommitReadOnlyNoop(t *testing.T) {
 		NewBytes: []byte("test"),
 	})
 	d := newDriver(EditorCfg{
-		IDFocus: 1, Buffer: buf, Width: 400, Height: 200,
+		ID: "e1", Buffer: buf, Width: 400, Height: 200,
 		ReadOnly: true,
 	})
 	d.tick()
@@ -114,7 +114,7 @@ func TestIME_SingleRuneUsesNormalPath(t *testing.T) {
 	// inserts correctly via the standard path.
 	buf := buffer.New()
 	d := newDriver(EditorCfg{
-		IDFocus: 1, Buffer: buf, Width: 400, Height: 200,
+		ID: "e1", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 	d.sendIMEChar("漢")
@@ -128,7 +128,7 @@ func TestIME_CommitSuppressesFollowingEnter(t *testing.T) {
 	t.Run("multi-rune", func(t *testing.T) {
 		buf := buffer.New()
 		d := newDriver(EditorCfg{
-			IDFocus: 1, Buffer: buf, Width: 400, Height: 200,
+			ID: "e1", Buffer: buf, Width: 400, Height: 200,
 		})
 		d.tick()
 		// Simulate: previous AmendLayout saw composition.
@@ -145,7 +145,7 @@ func TestIME_CommitSuppressesFollowingEnter(t *testing.T) {
 	t.Run("single-rune", func(t *testing.T) {
 		buf := buffer.New()
 		d := newDriver(EditorCfg{
-			IDFocus: 1, Buffer: buf, Width: 400, Height: 200,
+			ID: "e1", Buffer: buf, Width: 400, Height: 200,
 		})
 		d.tick()
 		d.frame.imeComposing = true
@@ -167,7 +167,7 @@ func TestCursorMovement_MultiByteRunes(t *testing.T) {
 		NewBytes: []byte("あいう"),
 	})
 	d := newDriver(EditorCfg{
-		IDFocus: 1, Buffer: buf, Width: 400, Height: 200,
+		ID: "e1", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 

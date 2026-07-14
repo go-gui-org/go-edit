@@ -13,7 +13,7 @@ import (
 
 func TestEditor_NilBufferSubstitutesEmpty(t *testing.T) {
 	v := Editor(EditorCfg{
-		IDFocus: 100, Buffer: nil, Width: 400, Height: 200,
+		ID: "e100", Buffer: nil, Width: 400, Height: 200,
 	})
 	if v == nil {
 		t.Fatal("Editor returned nil")
@@ -21,7 +21,7 @@ func TestEditor_NilBufferSubstitutesEmpty(t *testing.T) {
 	// Drive a frame to confirm no panic reaches AmendLayout.
 	d := &driver{
 		cfg: EditorCfg{
-			IDFocus: 100, Buffer: buffer.New(),
+			ID: "e100", Buffer: buffer.New(),
 			Width: 400, Height: 200,
 		},
 		frame: &editorFrameData{},
@@ -35,10 +35,10 @@ func TestEditor_NilBufferSubstitutesEmpty(t *testing.T) {
 func TestEditor_NaNDimensions(t *testing.T) {
 	nan := float32(math.NaN())
 	v := Editor(EditorCfg{
-		IDFocus: 101,
-		Buffer:  mkBuf("hello"),
-		Width:   nan,
-		Height:  nan,
+		ID:     "e101",
+		Buffer: mkBuf("hello"),
+		Width:  nan,
+		Height: nan,
 	})
 	if v == nil {
 		t.Fatal("Editor returned nil")
@@ -118,7 +118,7 @@ func TestEnsureCursorVisible_ZeroViewport(t *testing.T) {
 func TestDriver_MouseScrollNaNDropped(t *testing.T) {
 	buf := mkBuf("a\nb\nc\nd")
 	d := newDriver(EditorCfg{
-		IDFocus: 200, Buffer: buf, Width: 400, Height: 200,
+		ID: "e200", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 	before := d.state().ScrollY
@@ -131,7 +131,7 @@ func TestDriver_MouseScrollNaNDropped(t *testing.T) {
 func TestDriver_MouseScrollAbsurdDropped(t *testing.T) {
 	buf := mkBuf("a\nb\nc\nd")
 	d := newDriver(EditorCfg{
-		IDFocus: 201, Buffer: buf, Width: 400, Height: 200,
+		ID: "e201", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 	before := d.state().ScrollY
@@ -147,7 +147,7 @@ func TestDriver_MouseScrollAbsurdDropped(t *testing.T) {
 func TestHitTestPosition_NaNCoords(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello"))
 	d := newDriver(EditorCfg{
-		IDFocus: 202, Buffer: buf, Width: 400, Height: 200,
+		ID: "e202", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 	nan := float32(math.NaN())
@@ -161,7 +161,7 @@ func TestHitTestPosition_NaNCoords(t *testing.T) {
 func TestHitTestPosition_NegativeCoords(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello"))
 	d := newDriver(EditorCfg{
-		IDFocus: 203, Buffer: buf, Width: 400, Height: 200,
+		ID: "e203", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 	e := &gui.Event{MouseX: -100, MouseY: -100}
@@ -211,7 +211,7 @@ func TestDrawSelectionBg_NilMeasurer(t *testing.T) {
 func TestClickBeyondBuffer(t *testing.T) {
 	buf := buffer.FromBytes([]byte("ab"))
 	d := newDriver(EditorCfg{
-		IDFocus: 204, Buffer: buf, Width: 400, Height: 200,
+		ID: "e204", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Click way below the buffer (Y beyond last line).
 	d.sendClick(0, 5000, 0)
@@ -235,7 +235,7 @@ func TestDedentLine_HugeWidth(t *testing.T) {
 func TestMultiCursor_ClampAfterExternalTruncate(t *testing.T) {
 	buf := buffer.FromBytes([]byte("aaa\nbbb\nccc"))
 	d := newDriver(EditorCfg{
-		IDFocus: 210, Buffer: buf, Width: 400, Height: 200,
+		ID: "e210", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.addCursorAt(1, 2)
 	d.addCursorAt(2, 2)
@@ -355,7 +355,7 @@ func TestMultiCursor_MaxCursorsCap(t *testing.T) {
 // ---------- CursorPos public API ----------
 
 func TestCursorPos_NilWindow(t *testing.T) {
-	line, col, ok := CursorPos(nil, 1)
+	line, col, ok := CursorPos(nil, "e1")
 	if ok || line != 0 || col != 0 {
 		t.Errorf("nil window → (%d,%d,%v), want (0,0,false)",
 			line, col, ok)
@@ -364,7 +364,7 @@ func TestCursorPos_NilWindow(t *testing.T) {
 
 func TestCursorPos_NoState(t *testing.T) {
 	w := fakewin.New()
-	line, col, ok := CursorPos(w, 999)
+	line, col, ok := CursorPos(w, "e999")
 	if ok {
 		t.Errorf("no state → ok=true, want false")
 	}
@@ -377,8 +377,8 @@ func TestCursorPos_EmptyCursors(t *testing.T) {
 	w := fakewin.New()
 	// Seed state with empty Cursors slice.
 	st := editorState{Cursors: []CursorState{}}
-	storeState(w, 50, st)
-	_, _, ok := CursorPos(w, 50)
+	storeState(w, "e50", st)
+	_, _, ok := CursorPos(w, "e50")
 	if ok {
 		t.Error("empty cursors → ok=true, want false")
 	}
@@ -387,7 +387,7 @@ func TestCursorPos_EmptyCursors(t *testing.T) {
 func TestCursorPos_ReturnsPosition(t *testing.T) {
 	buf := mkBuf("aaa\nbbb\nccc")
 	d := newDriver(EditorCfg{
-		IDFocus: 51, Buffer: buf, Width: 400, Height: 200,
+		ID: "e51", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Move cursor into line 1 by clicking mid-line.
 	// Exact column depends on go-glyph HitTest boundary
@@ -398,7 +398,7 @@ func TestCursorPos_ReturnsPosition(t *testing.T) {
 		16, // line 1 × 16px
 		0,
 	)
-	line, col, ok := CursorPos(d.w, 51)
+	line, col, ok := CursorPos(d.w, "e51")
 	if !ok {
 		t.Fatal("ok=false, want true")
 	}
@@ -415,7 +415,7 @@ func TestCursorPos_ReturnsPosition(t *testing.T) {
 func TestHitTestPosition_EmptyBuffer(t *testing.T) {
 	buf := buffer.New() // 0 lines
 	d := newDriver(EditorCfg{
-		IDFocus: 52, Buffer: buf, Width: 400, Height: 200,
+		ID: "e52", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 	e := &gui.Event{MouseX: 50, MouseY: 50}
@@ -428,7 +428,7 @@ func TestHitTestPosition_EmptyBuffer(t *testing.T) {
 func TestHitTestPosition_ScrollYOverride(t *testing.T) {
 	buf := buffer.FromBytes([]byte("aaa\nbbb\nccc\nddd\neee"))
 	d := newDriver(EditorCfg{
-		IDFocus: 53, Buffer: buf, Width: 400, Height: 200,
+		ID: "e53", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 	// Click at y=0 with scrollY=0 → line 0.
@@ -447,7 +447,7 @@ func TestHitTestPosition_ScrollYOverride(t *testing.T) {
 func TestHitTestPosition_NegativeMouseY(t *testing.T) {
 	buf := buffer.FromBytes([]byte("aaa\nbbb\nccc"))
 	d := newDriver(EditorCfg{
-		IDFocus: 54, Buffer: buf, Width: 400, Height: 200,
+		ID: "e54", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 	e := &gui.Event{MouseX: 0, MouseY: -100}
@@ -460,7 +460,7 @@ func TestHitTestPosition_NegativeMouseY(t *testing.T) {
 func TestHitTestPosition_NaNScrollYParam(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello"))
 	d := newDriver(EditorCfg{
-		IDFocus: 55, Buffer: buf, Width: 400, Height: 200,
+		ID: "e55", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 	nan := float32(math.NaN())
@@ -495,7 +495,7 @@ func TestHitTestLocal_NilScratch(t *testing.T) {
 func TestHitTestLocal_DelegatesToHitTest(t *testing.T) {
 	buf := buffer.FromBytes([]byte("aaa\nbbb\nccc"))
 	d := newDriver(EditorCfg{
-		IDFocus: 56, Buffer: buf, Width: 400, Height: 200,
+		ID: "e56", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 	var scratch gui.Event
@@ -511,7 +511,7 @@ func TestHitTestLocal_DelegatesToHitTest(t *testing.T) {
 func TestOnClick_CanvasOriginNaNGuard(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello"))
 	d := newDriver(EditorCfg{
-		IDFocus: 57, Buffer: buf, Width: 400, Height: 200,
+		ID: "e57", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 
@@ -540,13 +540,13 @@ func TestOnClick_CanvasOriginNaNGuard(t *testing.T) {
 
 func TestTriggerAction_NilWindowNoPanic(t *testing.T) {
 	// Must not panic.
-	TriggerAction(nil, 1, "edit.undo")
+	TriggerAction(nil, "e1", "edit.undo")
 }
 
 func TestTriggerAction_EmptyActionIDNoPanic(t *testing.T) {
 	w := fakewin.New()
-	TriggerAction(w, 1, "")
-	st := loadState(w, 1)
+	TriggerAction(w, "e1", "")
+	st := loadState(w, "e1")
 	if st.PendingAction != "" {
 		t.Errorf("PendingAction=%q, want empty", st.PendingAction)
 	}
@@ -555,10 +555,10 @@ func TestTriggerAction_EmptyActionIDNoPanic(t *testing.T) {
 func TestTriggerAction_UnknownIDStoredButNoOp(t *testing.T) {
 	buf := mkBuf("hello")
 	d := newDriver(EditorCfg{
-		IDFocus: 300, Buffer: buf, Width: 400, Height: 200,
+		ID: "e300", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
-	TriggerAction(d.w, 300, "no.such.action")
+	TriggerAction(d.w, "e300", "no.such.action")
 	// tick must not panic; buffer must be unchanged.
 	d.tick()
 	if buf.LineCount() != 1 || string(buf.Line(0)) != "hello" {
@@ -575,14 +575,14 @@ func TestTriggerAction_ReadOnlyBlocksEditAction(t *testing.T) {
 	})
 	// buffer is now "xhello"; undo would revert it.
 	d := newDriver(EditorCfg{
-		IDFocus:  301,
+		ID:       "e301",
 		Buffer:   buf,
 		Width:    400,
 		Height:   200,
 		ReadOnly: true,
 	})
 	d.tick()
-	TriggerAction(d.w, 301, "edit.undo")
+	TriggerAction(d.w, "e301", "edit.undo")
 	d.tick()
 	// ReadOnly: undo must not have fired.
 	if string(buf.Line(0)) != "xhello" {
@@ -601,7 +601,7 @@ func TestEditor_DoubleMountPanics(t *testing.T) {
 		}
 	}()
 	cfg := EditorCfg{
-		IDFocus: 900, Buffer: buffer.New(),
+		ID: "e900", Buffer: buffer.New(),
 		Width: 400, Height: 200,
 	}
 	frame := &editorFrameData{}
@@ -621,7 +621,7 @@ func TestEditor_DoubleMountPanics(t *testing.T) {
 // framework's frame counter is not advanced).
 func TestEditor_ReuseLayoutDoesNotPanic(t *testing.T) {
 	cfg := EditorCfg{
-		IDFocus: 901, Buffer: buffer.New(),
+		ID: "e901", Buffer: buffer.New(),
 		Width: 400, Height: 200,
 	}
 	frame := &editorFrameData{}
@@ -647,7 +647,7 @@ func TestEditor_DrawVersion_StableOnUnchangedFrame(t *testing.T) {
 		NewBytes: []byte("hello"),
 	})
 	cfg := EditorCfg{
-		IDFocus: 910, Buffer: buf, Width: 400, Height: 200,
+		ID: "e910", Buffer: buf, Width: 400, Height: 200,
 	}
 	frame := &editorFrameData{}
 	amend := editorAmendLayout(cfg, frame)
@@ -675,7 +675,7 @@ func TestEditor_DrawVersion_StableOnUnchangedFrame(t *testing.T) {
 func TestEditor_DrawVersion_ChangesOnEdit(t *testing.T) {
 	buf := buffer.New()
 	cfg := EditorCfg{
-		IDFocus: 911, Buffer: buf, Width: 400, Height: 200,
+		ID: "e911", Buffer: buf, Width: 400, Height: 200,
 	}
 	frame := &editorFrameData{}
 	amend := editorAmendLayout(cfg, frame)
@@ -740,7 +740,7 @@ func TestFloatBitsStable_DistinctFinite(t *testing.T) {
 func TestEditor_DrawVersion_StableUnderNaNScroll(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello"))
 	cfg := EditorCfg{
-		IDFocus: 920, Buffer: buf, Width: 400, Height: 200,
+		ID: "e920", Buffer: buf, Width: 400, Height: 200,
 	}
 	frame := &editorFrameData{}
 	amend := editorAmendLayout(cfg, frame)
@@ -749,19 +749,19 @@ func TestEditor_DrawVersion_StableUnderNaNScroll(t *testing.T) {
 
 	// Inject a NaN directly via state — bypassing the normal
 	// clampScroll path — to verify the fold is stable.
-	st := loadState(w, cfg.IDFocus)
+	st := loadState(w, cfg.ID)
 	nan := float32(math.NaN())
 	st.ScrollY = nan
-	storeState(w, cfg.IDFocus, st)
+	storeState(w, cfg.ID, st)
 	amend(ly, w)
 	v1 := frame.drawVersion
 
 	// Re-inject a *different* NaN (multiple bit patterns) and
 	// confirm the hash is identical.
-	st = loadState(w, cfg.IDFocus)
+	st = loadState(w, cfg.ID)
 	st.ScrollY = float32(math.Float64frombits(
 		math.Float64bits(math.NaN()) | 1))
-	storeState(w, cfg.IDFocus, st)
+	storeState(w, cfg.ID, st)
 	amend(ly, w)
 	v2 := frame.drawVersion
 	if v1 != v2 {
@@ -778,7 +778,7 @@ func TestEditor_DrawVersion_StableUnderNaNScroll(t *testing.T) {
 func TestEditor_DrawVersion_ChangesOnFindBarState(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello world"))
 	cfg := EditorCfg{
-		IDFocus: 915, Buffer: buf, Width: 400, Height: 200,
+		ID: "e915", Buffer: buf, Width: 400, Height: 200,
 	}
 	frame := &editorFrameData{}
 	amend := editorAmendLayout(cfg, frame)
@@ -787,20 +787,20 @@ func TestEditor_DrawVersion_ChangesOnFindBarState(t *testing.T) {
 
 	// Prime with search active + a query.
 	{
-		st := loadState(w, cfg.IDFocus)
+		st := loadState(w, cfg.ID)
 		st.Search.Active = true
 		st.Search.Query = "hello"
 		st.Search.FieldCursor = 0
-		storeState(w, cfg.IDFocus, st)
+		storeState(w, cfg.ID, st)
 	}
 	amend(ly, w)
 	base := frame.drawVersion
 
 	mutate := func(name string, fn func(*editorState)) {
 		t.Helper()
-		st := loadState(w, cfg.IDFocus)
+		st := loadState(w, cfg.ID)
 		fn(&st)
-		storeState(w, cfg.IDFocus, st)
+		storeState(w, cfg.ID, st)
 		amend(ly, w)
 		if frame.drawVersion == base {
 			t.Fatalf("%s: drawVersion did not change", name)
@@ -832,7 +832,7 @@ func TestEditor_DrawVersion_ChangesOnFindBarState(t *testing.T) {
 func TestEditor_DrawVersion_ChangesOnScroll(t *testing.T) {
 	buf := buffer.FromBytes([]byte("a\nb\nc\nd\ne\nf\ng\nh\ni\nj"))
 	cfg := EditorCfg{
-		IDFocus: 912, Buffer: buf, Width: 400, Height: 32,
+		ID: "e912", Buffer: buf, Width: 400, Height: 32,
 	}
 	frame := &editorFrameData{}
 	amend := editorAmendLayout(cfg, frame)
@@ -843,9 +843,9 @@ func TestEditor_DrawVersion_ChangesOnScroll(t *testing.T) {
 	v1 := frame.drawVersion
 
 	// Mutate persisted scroll directly via StateMap.
-	st := loadState(w, cfg.IDFocus)
+	st := loadState(w, cfg.ID)
 	st.ScrollY = 50
-	storeState(w, cfg.IDFocus, st)
+	storeState(w, cfg.ID, st)
 
 	amend(ly, w)
 	v2 := frame.drawVersion

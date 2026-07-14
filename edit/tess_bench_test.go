@@ -62,7 +62,7 @@ func newBenchEnv(
 	hl := highlight.New(buf, "go", nil)
 
 	cfg := EditorCfg{
-		IDFocus:           1,
+		ID:                "e1",
 		Buffer:            buf,
 		Width:             800,
 		Height:            float32(rows) * fakewin.LineHeight,
@@ -138,7 +138,7 @@ func BenchmarkTess_WithOverlays(b *testing.B) {
 		cfg.ShowWhitespace = WhitespaceAll
 
 		// Pre-populate selection spanning lines 10-30.
-		st := loadState(w, cfg.IDFocus)
+		st := loadState(w, cfg.ID)
 		st.Cursors = []CursorState{{
 			Cursor: buffer.Position{Line: 30, ByteCol: 0},
 			Anchor: buffer.Position{Line: 10, ByteCol: 0},
@@ -157,7 +157,7 @@ func BenchmarkTess_WithOverlays(b *testing.B) {
 		}
 		st.Search.Matches = matches
 		st.Search.CurrentMatch = 0
-		storeState(w, cfg.IDFocus, st)
+		storeState(w, cfg.ID, st)
 	})
 
 	b.ResetTimer()

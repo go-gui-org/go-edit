@@ -125,14 +125,14 @@ func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *g
 			return
 		}
 
-		st := loadState(w, cfg.IDFocus)
+		st := loadState(w, cfg.ID)
 
 		// Overlay intercepts: help and find bar get first crack.
 		if st.HelpActive {
 			handleHelpKey(&st, e, frame.lineHeight,
 				cfg.Height, frame.helpEntries)
 			resetBlink(cfg, &st)
-			storeState(w, cfg.IDFocus, st)
+			storeState(w, cfg.ID, st)
 			e.IsHandled = true
 			return
 		}
@@ -140,7 +140,7 @@ func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *g
 			if handleSearchKey(cfg, &st, cfg.Buffer, e) {
 				ensureCursorVisible(&st, frame, cfg)
 				resetBlink(cfg, &st)
-				storeState(w, cfg.IDFocus, st)
+				storeState(w, cfg.ID, st)
 				e.IsHandled = true
 				return
 			}
@@ -197,7 +197,7 @@ func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *g
 
 		sortAndMerge(&st)
 		ensureCursorVisible(&st, frame, cfg)
-		storeState(w, cfg.IDFocus, st)
+		storeState(w, cfg.ID, st)
 		e.IsHandled = true
 	}
 }
@@ -233,7 +233,7 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 		// EventChar, so checking len > 1 rune distinguishes
 		// true multi-codepoint IME commits from normal typing.
 		if utf8.RuneCountInString(e.IMEText) > 1 {
-			st := loadState(w, cfg.IDFocus)
+			st := loadState(w, cfg.ID)
 			if st.HelpActive {
 				e.IsHandled = true
 				return
@@ -242,7 +242,7 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 				handleSearchString(
 					&st, cfg.Buffer, e.IMEText)
 				resetBlink(cfg, &st)
-				storeState(w, cfg.IDFocus, st)
+				storeState(w, cfg.ID, st)
 				e.IsHandled = true
 				return
 			}
@@ -256,7 +256,7 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 				&st, cfg.Buffer, []byte(e.IMEText))
 			sortAndMerge(&st)
 			ensureCursorVisible(&st, frame, cfg)
-			storeState(w, cfg.IDFocus, st)
+			storeState(w, cfg.ID, st)
 			e.IsHandled = true
 			return
 		}
@@ -266,7 +266,7 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 			return
 		}
 
-		st := loadState(w, cfg.IDFocus)
+		st := loadState(w, cfg.ID)
 
 		// Overlay intercepts: help consumes all chars;
 		// find bar routes to search input.
@@ -277,7 +277,7 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 		if st.Search.Active {
 			handleSearchChar(&st, cfg.Buffer, r)
 			resetBlink(cfg, &st)
-			storeState(w, cfg.IDFocus, st)
+			storeState(w, cfg.ID, st)
 			e.IsHandled = true
 			return
 		}
@@ -316,7 +316,7 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 				}
 				sortAndMerge(&st)
 				ensureCursorVisible(&st, frame, cfg)
-				storeState(w, cfg.IDFocus, st)
+				storeState(w, cfg.ID, st)
 				e.IsHandled = true
 				return
 			}
@@ -328,7 +328,7 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 
 		sortAndMerge(&st)
 		ensureCursorVisible(&st, frame, cfg)
-		storeState(w, cfg.IDFocus, st)
+		storeState(w, cfg.ID, st)
 		e.IsHandled = true
 	}
 }

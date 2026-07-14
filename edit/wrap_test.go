@@ -217,7 +217,7 @@ func TestUpdateVisRowsCache_FallsBackAboveCap(t *testing.T) {
 	want := totalVisualRowsForBuffer(buf, m, wrapWidth, nil)
 
 	cfg := EditorCfg{
-		IDFocus:  700,
+		ID:       "e700",
 		Buffer:   buf,
 		Width:    200,
 		Height:   100,

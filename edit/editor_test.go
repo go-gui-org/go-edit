@@ -200,10 +200,10 @@ func TestEnsureCursorVisibleNoop(t *testing.T) {
 
 func TestEditorFactoryBuilds(t *testing.T) {
 	v := Editor(EditorCfg{
-		IDFocus: 1,
-		Buffer:  mkBuf("hello\nworld"),
-		Width:   400,
-		Height:  200,
+		ID:     "e1",
+		Buffer: mkBuf("hello\nworld"),
+		Width:  400,
+		Height: 200,
 	})
 	if v == nil {
 		t.Fatal("Editor returned nil")
@@ -218,10 +218,10 @@ func TestEditorFactoryBuilds(t *testing.T) {
 // line. Regression guard for the M3→M5 mismatch in editor_input.go.
 func TestEditor_MeasurerUsesDrawStyle(t *testing.T) {
 	d := newDriver(EditorCfg{
-		IDFocus: 1,
-		Buffer:  mkBuf("hello"),
-		Width:   400,
-		Height:  200,
+		ID:     "e1",
+		Buffer: mkBuf("hello"),
+		Width:  400,
+		Height: 200,
 	})
 	d.tick() // amend builds the Measurer
 	m := d.state().Measurer

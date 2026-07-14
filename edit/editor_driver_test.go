@@ -67,7 +67,7 @@ func (d *driver) sendScroll(dy float32) {
 }
 
 func (d *driver) state() editorState {
-	return loadState(d.w, d.cfg.IDFocus)
+	return loadState(d.w, d.cfg.ID)
 }
 
 // cursor returns the primary cursor state for test assertions.
@@ -78,13 +78,13 @@ func (d *driver) cursor() CursorState {
 // addCursorAt adds a cursor at the given position for multi-cursor
 // testing.
 func (d *driver) addCursorAt(line, col int) {
-	st := loadState(d.w, d.cfg.IDFocus)
+	st := loadState(d.w, d.cfg.ID)
 	addCursor(&st, CursorState{
 		Cursor:     buffer.Position{Line: line, ByteCol: col},
 		Anchor:     buffer.Position{Line: line, ByteCol: col},
 		DesiredCol: col,
 	})
-	storeState(d.w, d.cfg.IDFocus, st)
+	storeState(d.w, d.cfg.ID, st)
 }
 
 // cursorCount returns the number of active cursors.
@@ -97,7 +97,7 @@ func (d *driver) cursorCount() int {
 func TestDriver_TypeSequenceUpdatesBuffer(t *testing.T) {
 	buf := buffer.New()
 	d := newDriver(EditorCfg{
-		IDFocus: 1, Buffer: buf, Width: 400, Height: 200,
+		ID: "e1", Buffer: buf, Width: 400, Height: 200,
 	})
 	for _, r := range "hello" {
 		d.sendChar(r)
@@ -113,7 +113,7 @@ func TestDriver_TypeSequenceUpdatesBuffer(t *testing.T) {
 func TestDriver_EnterSplitsLine(t *testing.T) {
 	buf := buffer.FromBytes([]byte("foo"))
 	d := newDriver(EditorCfg{
-		IDFocus: 2, Buffer: buf, Width: 400, Height: 200,
+		ID: "e2", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Place cursor at end of "foo".
 	d.sendKey(gui.KeyEnd)
@@ -129,7 +129,7 @@ func TestDriver_EnterSplitsLine(t *testing.T) {
 func TestDriver_BackspaceAtLineStartJoinsLines(t *testing.T) {
 	buf := buffer.FromBytes([]byte("a\nb"))
 	d := newDriver(EditorCfg{
-		IDFocus: 3, Buffer: buf, Width: 400, Height: 200,
+		ID: "e3", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKey(gui.KeyDown) // to line 1
 	d.sendKey(gui.KeyHome) // col 0
@@ -145,7 +145,7 @@ func TestDriver_BackspaceAtLineStartJoinsLines(t *testing.T) {
 func TestDriver_ArrowsNavigate(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abc\ndef"))
 	d := newDriver(EditorCfg{
-		IDFocus: 4, Buffer: buf, Width: 400, Height: 200,
+		ID: "e4", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKey(gui.KeyRight)
 	d.sendKey(gui.KeyRight)
@@ -166,7 +166,7 @@ func TestDriver_PgDnScrollsIntoView(t *testing.T) {
 	bytes = append(bytes, 'x')
 	buf := buffer.FromBytes(bytes)
 	d := newDriver(EditorCfg{
-		IDFocus: 5, Buffer: buf,
+		ID: "e5", Buffer: buf,
 		Width:  400,
 		Height: 5 * fakewin.LineHeight, // 5 lines
 	})
@@ -179,7 +179,7 @@ func TestDriver_PgDnScrollsIntoView(t *testing.T) {
 func TestDriver_MouseScrollClamps(t *testing.T) {
 	buf := buffer.FromBytes([]byte("a\nb\nc"))
 	d := newDriver(EditorCfg{
-		IDFocus: 6, Buffer: buf,
+		ID: "e6", Buffer: buf,
 		Width:  400,
 		Height: 10 * fakewin.LineHeight, // bigger than buffer
 	})
@@ -192,7 +192,7 @@ func TestDriver_MouseScrollClamps(t *testing.T) {
 func TestDriver_ExternalBufferTruncateHealsCursor(t *testing.T) {
 	buf := buffer.FromBytes([]byte("a\nb\nc\nd\ne"))
 	d := newDriver(EditorCfg{
-		IDFocus: 7, Buffer: buf, Width: 400, Height: 200,
+		ID: "e7", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Move cursor to line 4.
 	for range 4 {
@@ -220,7 +220,7 @@ func TestDriver_ExternalBufferTruncateHealsCursor(t *testing.T) {
 func TestDriver_ReadOnlyBlocksEdits(t *testing.T) {
 	buf := buffer.FromBytes([]byte("locked"))
 	d := newDriver(EditorCfg{
-		IDFocus: 8, Buffer: buf, Width: 400, Height: 200,
+		ID: "e8", Buffer: buf, Width: 400, Height: 200,
 		ReadOnly: true,
 	})
 	for _, r := range "XYZ" {
@@ -239,7 +239,7 @@ func TestDriver_ReadOnlyBlocksEdits(t *testing.T) {
 func TestDriver_ShiftRightExtendsSelection(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abc"))
 	d := newDriver(EditorCfg{
-		IDFocus: 10, Buffer: buf, Width: 400, Height: 200,
+		ID: "e10", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKeyMod(gui.KeyRight, gui.ModShift)
 	d.sendKeyMod(gui.KeyRight, gui.ModShift)
@@ -255,7 +255,7 @@ func TestDriver_ShiftRightExtendsSelection(t *testing.T) {
 func TestDriver_RightCollapsesSelection(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abcd"))
 	d := newDriver(EditorCfg{
-		IDFocus: 11, Buffer: buf, Width: 400, Height: 200,
+		ID: "e11", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Select "ab".
 	d.sendKeyMod(gui.KeyRight, gui.ModShift)
@@ -275,7 +275,7 @@ func TestDriver_RightCollapsesSelection(t *testing.T) {
 func TestDriver_LeftCollapsesSelectionToStart(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abcd"))
 	d := newDriver(EditorCfg{
-		IDFocus: 12, Buffer: buf, Width: 400, Height: 200,
+		ID: "e12", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKeyMod(gui.KeyRight, gui.ModShift)
 	d.sendKeyMod(gui.KeyRight, gui.ModShift)
@@ -289,7 +289,7 @@ func TestDriver_LeftCollapsesSelectionToStart(t *testing.T) {
 func TestDriver_ShiftDownMultiLineSelection(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abc\ndef\nghi"))
 	d := newDriver(EditorCfg{
-		IDFocus: 13, Buffer: buf, Width: 400, Height: 200,
+		ID: "e13", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKeyMod(gui.KeyDown, gui.ModShift)
 	s := d.cursor()
@@ -304,7 +304,7 @@ func TestDriver_ShiftDownMultiLineSelection(t *testing.T) {
 func TestDriver_TypeReplacesSelection(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello"))
 	d := newDriver(EditorCfg{
-		IDFocus: 14, Buffer: buf, Width: 400, Height: 200,
+		ID: "e14", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Select "hel".
 	for range 3 {
@@ -319,7 +319,7 @@ func TestDriver_TypeReplacesSelection(t *testing.T) {
 func TestDriver_BackspaceDeletesSelection(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello"))
 	d := newDriver(EditorCfg{
-		IDFocus: 15, Buffer: buf, Width: 400, Height: 200,
+		ID: "e15", Buffer: buf, Width: 400, Height: 200,
 	})
 	for range 3 {
 		d.sendKeyMod(gui.KeyRight, gui.ModShift)
@@ -333,7 +333,7 @@ func TestDriver_BackspaceDeletesSelection(t *testing.T) {
 func TestDriver_SelectAll(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abc\ndef"))
 	d := newDriver(EditorCfg{
-		IDFocus: 16, Buffer: buf, Width: 400, Height: 200,
+		ID: "e16", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKeyMod(gui.KeyA, gui.ModCtrl)
 	s := d.cursor()
@@ -350,7 +350,7 @@ func TestDriver_SelectAll(t *testing.T) {
 func TestDriver_CopyPasteRoundTrip(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello world"))
 	d := newDriver(EditorCfg{
-		IDFocus: 17, Buffer: buf, Width: 400, Height: 200,
+		ID: "e17", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Select "hello".
 	for range 5 {
@@ -367,7 +367,7 @@ func TestDriver_CopyPasteRoundTrip(t *testing.T) {
 func TestDriver_CutRemovesText(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abcdef"))
 	d := newDriver(EditorCfg{
-		IDFocus: 18, Buffer: buf, Width: 400, Height: 200,
+		ID: "e18", Buffer: buf, Width: 400, Height: 200,
 	})
 	for range 3 {
 		d.sendKeyMod(gui.KeyRight, gui.ModShift)
@@ -386,7 +386,7 @@ func TestDriver_CutRemovesText(t *testing.T) {
 func TestDriver_CutNoSelectionIsNoop(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abc"))
 	d := newDriver(EditorCfg{
-		IDFocus: 19, Buffer: buf, Width: 400, Height: 200,
+		ID: "e19", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKeyMod(gui.KeyX, gui.ModCtrl)
 	if buf.String() != "abc" {
@@ -397,7 +397,7 @@ func TestDriver_CutNoSelectionIsNoop(t *testing.T) {
 func TestDriver_PasteEmptyClipboard(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abc"))
 	d := newDriver(EditorCfg{
-		IDFocus: 20, Buffer: buf, Width: 400, Height: 200,
+		ID: "e20", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKeyMod(gui.KeyV, gui.ModCtrl) // empty clipboard
 	if buf.String() != "abc" {
@@ -412,7 +412,7 @@ func TestDriver_TabInsertsIndent(t *testing.T) {
 	buf.Props.IndentStyle.UseTabs = true
 	buf.Props.IndentStyle.Width = 4
 	d := newDriver(EditorCfg{
-		IDFocus: 21, Buffer: buf, Width: 400, Height: 200,
+		ID: "e21", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKey(gui.KeyTab)
 	if buf.String() != "\t" {
@@ -425,7 +425,7 @@ func TestDriver_TabIndentsSelectedLines(t *testing.T) {
 	buf.Props.IndentStyle.UseTabs = true
 	buf.Props.IndentStyle.Width = 4
 	d := newDriver(EditorCfg{
-		IDFocus: 22, Buffer: buf, Width: 400, Height: 200,
+		ID: "e22", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Select all 3 lines.
 	d.sendKeyMod(gui.KeyA, gui.ModCtrl)
@@ -438,7 +438,7 @@ func TestDriver_TabIndentsSelectedLines(t *testing.T) {
 func TestDriver_ShiftTabDedents(t *testing.T) {
 	buf := buffer.FromBytes([]byte("\thello"))
 	d := newDriver(EditorCfg{
-		IDFocus: 23, Buffer: buf, Width: 400, Height: 200,
+		ID: "e23", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKeyMod(gui.KeyTab, gui.ModShift)
 	if buf.String() != "hello" {
@@ -449,7 +449,7 @@ func TestDriver_ShiftTabDedents(t *testing.T) {
 func TestDriver_DedentNoIndent(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello"))
 	d := newDriver(EditorCfg{
-		IDFocus: 24, Buffer: buf, Width: 400, Height: 200,
+		ID: "e24", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKeyMod(gui.KeyTab, gui.ModShift)
 	if buf.String() != "hello" {
@@ -462,7 +462,7 @@ func TestDriver_DedentNoIndent(t *testing.T) {
 func TestDriver_EnterAutoIndent(t *testing.T) {
 	buf := buffer.FromBytes([]byte("\thello"))
 	d := newDriver(EditorCfg{
-		IDFocus: 25, Buffer: buf, Width: 400, Height: 200,
+		ID: "e25", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKey(gui.KeyEnd)
 	d.sendKey(gui.KeyEnter)
@@ -476,7 +476,7 @@ func TestDriver_EnterAfterBraceAddsIndent(t *testing.T) {
 	buf.Props.IndentStyle.UseTabs = true
 	buf.Props.IndentStyle.Width = 4
 	d := newDriver(EditorCfg{
-		IDFocus: 26, Buffer: buf, Width: 400, Height: 200,
+		ID: "e26", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKey(gui.KeyEnd)
 	d.sendKey(gui.KeyEnter)
@@ -490,7 +490,7 @@ func TestDriver_EnterAfterBraceAddsIndent(t *testing.T) {
 func TestDriver_ClickSetsCursor(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abcdef"))
 	d := newDriver(EditorCfg{
-		IDFocus: 27, Buffer: buf, Width: 400, Height: 200,
+		ID: "e27", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Click inside char at index 3 (padLeft=4, so mx=25).
 	// HitTest(25, ...) lands inside char 3 (X=24..32).
@@ -507,7 +507,7 @@ func TestDriver_ClickSetsCursor(t *testing.T) {
 func TestDriver_ClickBeyondLineClamps(t *testing.T) {
 	buf := buffer.FromBytes([]byte("ab"))
 	d := newDriver(EditorCfg{
-		IDFocus: 28, Buffer: buf, Width: 400, Height: 200,
+		ID: "e28", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendClick(400, 0, 0) // way past end of "ab"
 	s := d.cursor()
@@ -522,7 +522,7 @@ func TestDriver_UndoRedoTyping(t *testing.T) {
 	buf := buffer.New()
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 30, Buffer: buf, Width: 400, Height: 200,
+		ID: "e30", Buffer: buf, Width: 400, Height: 200,
 	})
 	for _, r := range "hello" {
 		d.sendChar(r)
@@ -549,7 +549,7 @@ func TestDriver_UndoNewlineGroup(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abc"))
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 31, Buffer: buf, Width: 400, Height: 200,
+		ID: "e31", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKey(gui.KeyEnd)
 	d.sendKey(gui.KeyEnter)
@@ -566,7 +566,7 @@ func TestDriver_UndoPaste(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello"))
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 32, Buffer: buf, Width: 400, Height: 200,
+		ID: "e32", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Select "hel", copy, move to end, paste.
 	for range 3 {
@@ -591,7 +591,7 @@ func TestDriver_UndoIndentGroup(t *testing.T) {
 	buf.Props.IndentStyle.Width = 4
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 33, Buffer: buf, Width: 400, Height: 200,
+		ID: "e33", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKeyMod(gui.KeyA, gui.ModCtrl) // select all
 	d.sendKey(gui.KeyTab)               // indent
@@ -608,7 +608,7 @@ func TestDriver_UndoRedoReadOnlyBlocked(t *testing.T) {
 	buf := buffer.FromBytes([]byte("locked"))
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 34, Buffer: buf, Width: 400, Height: 200,
+		ID: "e34", Buffer: buf, Width: 400, Height: 200,
 		ReadOnly: true,
 	})
 	d.sendKeyMod(gui.KeyZ, gui.ModCtrl)
@@ -621,7 +621,7 @@ func TestDriver_UndoCutGroup(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abcdef"))
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 35, Buffer: buf, Width: 400, Height: 200,
+		ID: "e35", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Select "abc", cut.
 	for range 3 {
@@ -642,7 +642,7 @@ func TestDriver_UndoDeleteSelectionGroup(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello world"))
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 36, Buffer: buf, Width: 400, Height: 200,
+		ID: "e36", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Select "hello", press Delete.
 	for range 5 {
@@ -664,7 +664,7 @@ func TestDriver_UndoDedentGroup(t *testing.T) {
 	buf.Props.IndentStyle.Width = 4
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 37, Buffer: buf, Width: 400, Height: 200,
+		ID: "e37", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.sendKeyMod(gui.KeyA, gui.ModCtrl)    // select all
 	d.sendKeyMod(gui.KeyTab, gui.ModShift) // dedent
@@ -681,7 +681,7 @@ func TestDriver_UndoTypeOverSelection(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello"))
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 38, Buffer: buf, Width: 400, Height: 200,
+		ID: "e38", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Select "hel", type 'X' to replace.
 	for range 3 {
@@ -704,7 +704,7 @@ func TestDriver_MultiCursorTypeChar(t *testing.T) {
 	buf := buffer.FromBytes([]byte("aaa\nbbb\nccc"))
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 50, Buffer: buf, Width: 400, Height: 200,
+		ID: "e50", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Place primary at (0,0), add cursors at (1,0) and (2,0).
 	d.addCursorAt(1, 0)
@@ -722,7 +722,7 @@ func TestDriver_MultiCursorBackspace(t *testing.T) {
 	buf := buffer.FromBytes([]byte("Xaaa\nXbbb\nXccc"))
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 51, Buffer: buf, Width: 400, Height: 200,
+		ID: "e51", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Place cursors at col 1 on each line (after the X).
 	d.sendKey(gui.KeyRight) // primary to (0,1)
@@ -738,7 +738,7 @@ func TestDriver_MultiCursorUndo(t *testing.T) {
 	buf := buffer.FromBytes([]byte("aaa\nbbb\nccc"))
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 52, Buffer: buf, Width: 400, Height: 200,
+		ID: "e52", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.addCursorAt(1, 0)
 	d.addCursorAt(2, 0)
@@ -760,7 +760,7 @@ func TestDriver_MultiCursorUndo(t *testing.T) {
 func TestDriver_MultiCursorMovement(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abcd\nefgh\nijkl"))
 	d := newDriver(EditorCfg{
-		IDFocus: 53, Buffer: buf, Width: 400, Height: 200,
+		ID: "e53", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Two cursors at (0,0) and (2,0).
 	d.addCursorAt(2, 0)
@@ -781,7 +781,7 @@ func TestDriver_MultiCursorMovement(t *testing.T) {
 func TestDriver_MultiCursorMergesOnOverlap(t *testing.T) {
 	buf := buffer.FromBytes([]byte("abc"))
 	d := newDriver(EditorCfg{
-		IDFocus: 54, Buffer: buf, Width: 400, Height: 200,
+		ID: "e54", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Two cursors at (0,0) and (0,1). Move right → both at (0,1)
 	// and (0,2). Should remain 2 (different positions).
@@ -800,7 +800,7 @@ func TestDriver_MultiCursorMergesOnOverlap(t *testing.T) {
 func TestDriver_CtrlD_SelectsWord(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello world"))
 	d := newDriver(EditorCfg{
-		IDFocus: 55, Buffer: buf, Width: 400, Height: 200,
+		ID: "e55", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Cursor at start of "hello". Ctrl+D should select it.
 	d.sendKeyMod(gui.KeyD, gui.ModCtrl)
@@ -816,7 +816,7 @@ func TestDriver_CtrlD_SelectsWord(t *testing.T) {
 func TestDriver_CtrlD_FindsNext(t *testing.T) {
 	buf := buffer.FromBytes([]byte("foo bar foo baz foo"))
 	d := newDriver(EditorCfg{
-		IDFocus: 56, Buffer: buf, Width: 400, Height: 200,
+		ID: "e56", Buffer: buf, Width: 400, Height: 200,
 	})
 	// First Ctrl+D selects "foo".
 	d.sendKeyMod(gui.KeyD, gui.ModCtrl)
@@ -835,7 +835,7 @@ func TestDriver_CtrlD_FindsNext(t *testing.T) {
 func TestDriver_Escape_CollapsesCursors(t *testing.T) {
 	buf := buffer.FromBytes([]byte("aaa\nbbb\nccc"))
 	d := newDriver(EditorCfg{
-		IDFocus: 57, Buffer: buf, Width: 400, Height: 200,
+		ID: "e57", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.addCursorAt(1, 0)
 	d.addCursorAt(2, 0)
@@ -851,7 +851,7 @@ func TestDriver_Escape_CollapsesCursors(t *testing.T) {
 func TestDriver_Escape_ClearsSelection(t *testing.T) {
 	buf := buffer.FromBytes([]byte("hello"))
 	d := newDriver(EditorCfg{
-		IDFocus: 58, Buffer: buf, Width: 400, Height: 200,
+		ID: "e58", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Select some text.
 	d.sendKeyMod(gui.KeyRight, gui.ModShift)
@@ -871,7 +871,7 @@ func TestDriver_MultiCursorCopyPaste(t *testing.T) {
 	buf := buffer.FromBytes([]byte("aaa\nbbb\nccc"))
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 59, Buffer: buf, Width: 400, Height: 200,
+		ID: "e59", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Select "aaa" on line 0.
 	d.sendKeyMod(gui.KeyRight, gui.ModShift)
@@ -880,10 +880,10 @@ func TestDriver_MultiCursorCopyPaste(t *testing.T) {
 	// Add cursor at (2,0) and select "ccc".
 	d.addCursorAt(2, 0)
 	// For simplicity, manually set selection on second cursor.
-	st := loadState(d.w, d.cfg.IDFocus)
+	st := loadState(d.w, d.cfg.ID)
 	st.Cursors[1].Anchor = buffer.Position{Line: 2, ByteCol: 0}
 	st.Cursors[1].Cursor = buffer.Position{Line: 2, ByteCol: 3}
-	storeState(d.w, d.cfg.IDFocus, st)
+	storeState(d.w, d.cfg.ID, st)
 
 	d.sendKeyMod(gui.KeyC, gui.ModCtrl) // copy
 	// Clipboard should be "aaa\nccc".
@@ -903,16 +903,16 @@ func TestDriver_MultiCursorCut(t *testing.T) {
 	buf := buffer.FromBytes([]byte("Xaa\nXbb\nXcc"))
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 60, Buffer: buf, Width: 400, Height: 200,
+		ID: "e60", Buffer: buf, Width: 400, Height: 200,
 	})
 	// Select "X" on each line.
-	st := loadState(d.w, d.cfg.IDFocus)
+	st := loadState(d.w, d.cfg.ID)
 	st.Cursors = []CursorState{
 		{Cursor: buffer.Position{Line: 0, ByteCol: 1}, Anchor: buffer.Position{Line: 0, ByteCol: 0}},
 		{Cursor: buffer.Position{Line: 1, ByteCol: 1}, Anchor: buffer.Position{Line: 1, ByteCol: 0}},
 		{Cursor: buffer.Position{Line: 2, ByteCol: 1}, Anchor: buffer.Position{Line: 2, ByteCol: 0}},
 	}
-	storeState(d.w, d.cfg.IDFocus, st)
+	storeState(d.w, d.cfg.ID, st)
 
 	d.sendKeyMod(gui.KeyX, gui.ModCtrl) // cut
 	if buf.String() != "aa\nbb\ncc" {
@@ -932,7 +932,7 @@ func TestDriver_MultiCursorFilterVetoPartialApply(t *testing.T) {
 	buf := buffer.FromBytes([]byte("aaa\nbbb\nccc"))
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 99, Buffer: buf, Width: 400, Height: 200,
+		ID: "e99", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 
@@ -956,7 +956,7 @@ func TestDriver_MultiCursorFilterVetoPartialApply(t *testing.T) {
 		{Cursor: buffer.Position{Line: 2, ByteCol: 0},
 			Anchor: buffer.Position{Line: 2, ByteCol: 0}},
 	}
-	storeState(d.w, d.cfg.IDFocus, st)
+	storeState(d.w, d.cfg.ID, st)
 
 	// Type 'X' — should insert on lines 0 and 2, rejected on 1.
 	d.sendChar('X')

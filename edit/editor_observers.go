@@ -18,9 +18,9 @@ func syncSearchObserver(
 	}
 	if st.Search.Active && remove == nil {
 		remove = cfg.Buffer.OnEdit(func(_ buffer.Change) {
-			s := loadState(w, cfg.IDFocus)
+			s := loadState(w, cfg.ID)
 			s.Search.matchesDirty = true
-			storeState(w, cfg.IDFocus, s)
+			storeState(w, cfg.ID, s)
 		})
 	} else if !st.Search.Active && remove != nil {
 		remove()
@@ -52,11 +52,11 @@ func syncFoldObserver(
 ) func() {
 	if cfg.EnableFolding && remove == nil {
 		remove = cfg.Buffer.OnEdit(func(c buffer.Change) {
-			s := loadState(w, cfg.IDFocus)
+			s := loadState(w, cfg.ID)
 			if len(s.FoldedRanges) > 0 {
 				s.FoldedRanges = invalidateFolds(
 					s.FoldedRanges, c)
-				storeState(w, cfg.IDFocus, s)
+				storeState(w, cfg.ID, s)
 			}
 		})
 	} else if !cfg.EnableFolding && remove != nil {
