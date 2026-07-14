@@ -26,7 +26,7 @@ func at(ms int64) time.Time {
 
 func newBlinkDriver(period time.Duration, clock *fakeClock) *driver {
 	cfg := EditorCfg{
-		IDFocus:           42,
+		ID:                "e42",
 		Buffer:            buffer.FromBytes([]byte("hello")),
 		Width:             400,
 		Height:            200,
@@ -174,7 +174,7 @@ func TestBlink_ScrollDoesNotReset(t *testing.T) {
 	clk := &fakeClock{t: blinkBase}
 	buf := buffer.FromBytes([]byte("a\nb\nc\nd\ne\nf\ng"))
 	cfg := EditorCfg{
-		IDFocus:           99,
+		ID:                "e99",
 		Buffer:            buf,
 		Width:             400,
 		Height:            200,
@@ -219,7 +219,7 @@ func TestBlink_DrawVersionStableAcrossBlinkTransitions(t *testing.T) {
 func TestBlink_ResetBlinkDisabledNoop(t *testing.T) {
 	clk := &fakeClock{t: blinkBase}
 	cfg := EditorCfg{
-		IDFocus:           50,
+		ID:                "e50",
 		Buffer:            buffer.New(),
 		Width:             400,
 		Height:            200,
@@ -268,7 +268,7 @@ func TestBlink_HelpOverlayHidesCursor(t *testing.T) {
 	// Activate help overlay.
 	st := d.state()
 	st.HelpActive = true
-	storeState(d.w, d.cfg.IDFocus, st)
+	storeState(d.w, d.cfg.ID, st)
 	d.tick()
 	// cursorVisible is still true (blink state), but the overlay
 	// draw closure should early-return when HelpActive. Verify

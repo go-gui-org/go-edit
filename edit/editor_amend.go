@@ -27,7 +27,7 @@ func checkDoubleMount(
 		layoutPtr != nil &&
 		frame.lastLayout != layoutPtr {
 		panic("go-edit: Editor view mounted twice in the same " +
-			"frame — give each mount a distinct IDFocus or " +
+			"frame — give each mount a distinct ID or " +
 			"construct a new Editor(cfg) per mount site")
 	}
 	frame.frameSeq = currentFrame
@@ -49,7 +49,7 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 	return func(layout *gui.Layout, w *gui.Window) {
 		checkDoubleMount(frame, layout, w)
 		frame.imeCommitted = false
-		st := loadState(w, cfg.IDFocus)
+		st := loadState(w, cfg.ID)
 		if st.Measurer != nil {
 			st.Measurer.InvalidateCache()
 		}
@@ -177,7 +177,7 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 			layout.Children[0].Shape.Version = frame.drawVersion
 		}
 
-		storeState(w, cfg.IDFocus, st)
+		storeState(w, cfg.ID, st)
 	}
 }
 

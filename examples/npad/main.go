@@ -24,11 +24,11 @@ import (
 )
 
 const (
-	winWidth           = 1000
-	winHeight          = 700
-	focusEditor uint32 = 1
-	statusBarH         = 32
-	maxRecent          = 10
+	winWidth    = 1000
+	winHeight   = 700
+	focusEditor = "editor"
+	statusBarH  = 32
+	maxRecent   = 10
 )
 
 // appState holds per-window state accessed via gui.State[appState](w).
@@ -140,7 +140,7 @@ func main() {
 			registerCommands(w)
 			rebuildMenu(s, w)
 			w.UpdateView(mainView)
-			w.SetIDFocus(focusEditor)
+			w.SetFocus(focusEditor)
 		},
 		OnCloseRequest: onCloseRequest,
 	})
@@ -322,7 +322,7 @@ func mainView(w *gui.Window) gui.View {
 	mono.Size = 12
 
 	editorView := edit.Editor(edit.EditorCfg{
-		IDFocus:          focusEditor,
+		ID:               focusEditor,
 		Buffer:           s.Buf,
 		Width:            editorW,
 		Height:           editorH,

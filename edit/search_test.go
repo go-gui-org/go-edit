@@ -152,13 +152,13 @@ func TestFindAllMatches_InSelection_MultiLine(t *testing.T) {
 
 func TestDriver_FindInSelection(t *testing.T) {
 	buf := mkBuf("aaa bbb aaa bbb aaa")
-	d := newDriver(EditorCfg{Buffer: buf, IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: buf, ID: "e1"})
 
 	// Select middle portion: "bbb aaa bbb" (col 4..15).
 	st := d.state()
 	st.Cursors[0].Anchor = buffer.Position{Line: 0, ByteCol: 4}
 	st.Cursors[0].Cursor = buffer.Position{Line: 0, ByteCol: 15}
-	storeState(d.w, d.cfg.IDFocus, st)
+	storeState(d.w, d.cfg.ID, st)
 
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 
@@ -171,7 +171,7 @@ func TestDriver_FindInSelection(t *testing.T) {
 	st = d.state()
 	st.Cursors[0].Anchor = buffer.Position{Line: 0, ByteCol: 4}
 	st.Cursors[0].Cursor = buffer.Position{Line: 0, ByteCol: 15}
-	storeState(d.w, d.cfg.IDFocus, st)
+	storeState(d.w, d.cfg.ID, st)
 
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 	// Single-line selection populates query with "bbb aaa bbb".
@@ -186,7 +186,7 @@ func TestDriver_FindInSelection(t *testing.T) {
 	st = d.state()
 	st.Cursors[0].Anchor = buffer.Position{Line: 0, ByteCol: 4}
 	st.Cursors[0].Cursor = buffer.Position{Line: 0, ByteCol: 15}
-	storeState(d.w, d.cfg.IDFocus, st)
+	storeState(d.w, d.cfg.ID, st)
 
 	d.sendKeyMod(gui.KeyS, gui.ModAlt)
 	for _, r := range "aaa" {
@@ -333,7 +333,7 @@ func TestReplaceNext(t *testing.T) {
 // ---------- driver integration tests ----------
 
 func TestDriver_CtrlFOpensFindBar(t *testing.T) {
-	d := newDriver(EditorCfg{Buffer: mkBuf("hello world"), IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: mkBuf("hello world"), ID: "e1"})
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 	st := d.state()
 	if !st.Search.Active {
@@ -342,7 +342,7 @@ func TestDriver_CtrlFOpensFindBar(t *testing.T) {
 }
 
 func TestDriver_FindBarTyping(t *testing.T) {
-	d := newDriver(EditorCfg{Buffer: mkBuf("hello world hello"), IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: mkBuf("hello world hello"), ID: "e1"})
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 	d.sendChar('h')
 	d.sendChar('e')
@@ -362,7 +362,7 @@ func TestDriver_FindBarTyping(t *testing.T) {
 
 func TestDriver_FindNext(t *testing.T) {
 	buf := mkBuf("aaa\nbbb\naaa")
-	d := newDriver(EditorCfg{Buffer: buf, IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: buf, ID: "e1"})
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 
 	for _, r := range "aaa" {
@@ -386,7 +386,7 @@ func TestDriver_FindNext(t *testing.T) {
 
 func TestDriver_FindPrev(t *testing.T) {
 	buf := mkBuf("aaa\nbbb\naaa")
-	d := newDriver(EditorCfg{Buffer: buf, IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: buf, ID: "e1"})
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 
 	for _, r := range "aaa" {
@@ -404,7 +404,7 @@ func TestDriver_FindPrev(t *testing.T) {
 }
 
 func TestDriver_EscapeClosesFindBar(t *testing.T) {
-	d := newDriver(EditorCfg{Buffer: mkBuf("hello"), IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: mkBuf("hello"), ID: "e1"})
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 	st := d.state()
 	if !st.Search.Active {
@@ -420,13 +420,13 @@ func TestDriver_EscapeClosesFindBar(t *testing.T) {
 
 func TestDriver_SelectionPopulatesQuery(t *testing.T) {
 	buf := mkBuf("hello world")
-	d := newDriver(EditorCfg{Buffer: buf, IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: buf, ID: "e1"})
 
 	// Select "hello" (pos 0..5).
 	st := d.state()
 	st.Cursors[0].Anchor = buffer.Position{Line: 0, ByteCol: 0}
 	st.Cursors[0].Cursor = buffer.Position{Line: 0, ByteCol: 5}
-	storeState(d.w, d.cfg.IDFocus, st)
+	storeState(d.w, d.cfg.ID, st)
 
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 	st = d.state()
@@ -438,7 +438,7 @@ func TestDriver_SelectionPopulatesQuery(t *testing.T) {
 func TestDriver_ReplaceAll(t *testing.T) {
 	buf := mkBuf("aaa bbb aaa")
 	buf.EnableUndo(nil)
-	d := newDriver(EditorCfg{Buffer: buf, IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: buf, ID: "e1"})
 
 	// Open replace bar.
 	d.sendKeyMod(gui.KeyH, gui.ModCtrl)
@@ -487,7 +487,7 @@ func TestDriver_ReplaceAll(t *testing.T) {
 
 func TestDriver_ToggleCase(t *testing.T) {
 	buf := mkBuf("Hello hello")
-	d := newDriver(EditorCfg{Buffer: buf, IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: buf, ID: "e1"})
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 
 	for _, r := range "hello" {
@@ -515,7 +515,7 @@ func TestDriver_ToggleCase(t *testing.T) {
 
 func TestDriver_ToggleRegex(t *testing.T) {
 	buf := mkBuf("foo123 bar456")
-	d := newDriver(EditorCfg{Buffer: buf, IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: buf, ID: "e1"})
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 
 	for _, r := range `\d+` {
@@ -546,7 +546,7 @@ func TestDriver_ToggleRegex(t *testing.T) {
 func TestDriver_ReadOnlyBlocksReplace(t *testing.T) {
 	buf := mkBuf("aaa bbb aaa")
 	buf.EnableUndo(nil)
-	d := newDriver(EditorCfg{Buffer: buf, IDFocus: 1, ReadOnly: true})
+	d := newDriver(EditorCfg{Buffer: buf, ID: "e1", ReadOnly: true})
 
 	d.sendKeyMod(gui.KeyH, gui.ModCtrl)
 	for _, r := range "aaa" {
@@ -570,7 +570,7 @@ func TestDriver_ReadOnlyBlocksReplace(t *testing.T) {
 }
 
 func TestDriver_FindBarBackspace(t *testing.T) {
-	d := newDriver(EditorCfg{Buffer: mkBuf("hello"), IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: mkBuf("hello"), ID: "e1"})
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 	d.sendChar('a')
 	d.sendChar('b')
@@ -840,7 +840,7 @@ func TestReplaceAll_EmptyReplacement(t *testing.T) {
 // ---------- driver: delete, cursor movement, keybindings ----------
 
 func TestDriver_FindBarDelete(t *testing.T) {
-	d := newDriver(EditorCfg{Buffer: mkBuf("hello"), IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: mkBuf("hello"), ID: "e1"})
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 	d.sendChar('a')
 	d.sendChar('b')
@@ -854,7 +854,7 @@ func TestDriver_FindBarDelete(t *testing.T) {
 }
 
 func TestDriver_FindBarCursorMovement(t *testing.T) {
-	d := newDriver(EditorCfg{Buffer: mkBuf("hello"), IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: mkBuf("hello"), ID: "e1"})
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 	d.sendChar('a')
 	d.sendChar('b')
@@ -892,7 +892,7 @@ func TestDriver_FindBarCursorMovement(t *testing.T) {
 func TestDriver_CtrlRReplacesNext(t *testing.T) {
 	buf := mkBuf("aaa bbb aaa")
 	buf.EnableUndo(nil)
-	d := newDriver(EditorCfg{Buffer: buf, IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: buf, ID: "e1"})
 
 	d.sendKeyMod(gui.KeyH, gui.ModCtrl)
 	for _, r := range "aaa" {
@@ -916,7 +916,7 @@ func TestDriver_CtrlRReplacesNext(t *testing.T) {
 }
 
 func TestDriver_CtrlHTogglesReplace(t *testing.T) {
-	d := newDriver(EditorCfg{Buffer: mkBuf("hello"), IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: mkBuf("hello"), ID: "e1"})
 	d.sendKeyMod(gui.KeyF, gui.ModCtrl)
 	st := d.state()
 	if st.Search.ShowReplace {
@@ -956,7 +956,7 @@ func TestFindAllMatches_RegexZeroLengthMatch(t *testing.T) {
 func TestDriver_ReplaceAll_UndoThenReplaceAgain(t *testing.T) {
 	buf := mkBuf("aaa bbb aaa")
 	buf.EnableUndo(nil)
-	d := newDriver(EditorCfg{Buffer: buf, IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: buf, ID: "e1"})
 
 	d.sendKeyMod(gui.KeyH, gui.ModCtrl)
 	for _, r := range "aaa" {
@@ -1002,7 +1002,7 @@ func TestDriver_ReplaceAll_UndoThenReplaceAgain(t *testing.T) {
 
 func TestDriver_FindBarWithMultiCursor(t *testing.T) {
 	buf := mkBuf("aaa bbb aaa")
-	d := newDriver(EditorCfg{Buffer: buf, IDFocus: 1})
+	d := newDriver(EditorCfg{Buffer: buf, ID: "e1"})
 
 	// Add a second cursor.
 	d.addCursorAt(0, 4)

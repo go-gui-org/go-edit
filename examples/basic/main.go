@@ -26,9 +26,9 @@ func main() {
 `
 
 const (
-	winWidth           = 900
-	winHeight          = 600
-	focusEditor uint32 = 1
+	winWidth    = 900
+	winHeight   = 600
+	focusEditor = "editor"
 )
 
 func loadBuffer() (*buffer.Buffer, string, error) {
@@ -53,7 +53,7 @@ func main() {
 	view := func(w *gui.Window) gui.View {
 		ww, wh := w.WindowSize()
 		return edit.Editor(edit.EditorCfg{
-			IDFocus:         focusEditor,
+			ID:              focusEditor,
 			Buffer:          buf,
 			Width:           float32(ww),
 			Height:          float32(wh),
@@ -67,7 +67,7 @@ func main() {
 		Height: winHeight,
 		OnInit: func(w *gui.Window) {
 			w.UpdateView(view)
-			w.SetIDFocus(focusEditor)
+			w.SetFocus(focusEditor)
 		},
 	})
 

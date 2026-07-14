@@ -474,7 +474,7 @@ func TestDriverWrapUpDown_FullPipeline(t *testing.T) {
 	buf := buffer.FromBytes([]byte(
 		"abcdefghijklmnopqrstuvwxy\nshort"))
 	d := newDriver(EditorCfg{
-		IDFocus:         42,
+		ID:              "e42",
 		Buffer:          buf,
 		Width:           80,
 		Height:          200,

@@ -10,7 +10,7 @@ import (
 )
 
 // nsEdit is the StateMap namespace for persistent editor state
-// keyed by IDFocus.
+// keyed by EditorCfg.ID.
 const nsEdit = "edit.state"
 
 // capEdit caps the number of concurrently tracked editor instances
@@ -183,14 +183,14 @@ type editorFrameData struct {
 	blinkTimer *time.Timer
 }
 
-func loadState(w *gui.Window, id uint32) editorState {
-	m := gui.StateMap[uint32, editorState](w, nsEdit, capEdit)
+func loadState(w *gui.Window, id string) editorState {
+	m := gui.StateMap[string, editorState](w, nsEdit, capEdit)
 	s, _ := m.Get(id)
 	s.ensureCursors()
 	return s
 }
 
-func storeState(w *gui.Window, id uint32, s editorState) {
-	m := gui.StateMap[uint32, editorState](w, nsEdit, capEdit)
+func storeState(w *gui.Window, id string, s editorState) {
+	m := gui.StateMap[string, editorState](w, nsEdit, capEdit)
 	m.Set(id, s)
 }

@@ -8,7 +8,7 @@ import (
 )
 
 // setCursorEnd places the primary cursor at the end of line 0.
-func setCursorEnd(d *driver, focusID uint32, line []byte) {
+func setCursorEnd(d *driver, focusID string, line []byte) {
 	col := len(line)
 	st := loadState(d.w, focusID)
 	st.Cursors = []CursorState{mkCursor(0, col)}
@@ -21,16 +21,16 @@ func TestTriggerAction_ExecutedOnNextAmendLayout(t *testing.T) {
 	buf := mkBuf("hello")
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 400, Buffer: buf, Width: 400, Height: 200,
+		ID: "e400", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
-	setCursorEnd(d, 400, buf.Line(0))
+	setCursorEnd(d, "e400", buf.Line(0))
 	d.sendChar('!')
 	if string(buf.Line(0)) != "hello!" {
 		t.Fatalf("setup: want %q got %q", "hello!", string(buf.Line(0)))
 	}
 
-	TriggerAction(d.w, 400, "edit.undo")
+	TriggerAction(d.w, "e400", "edit.undo")
 	d.tick() // AmendLayout executes the pending action.
 
 	if string(buf.Line(0)) != "hello" {
@@ -42,16 +42,16 @@ func TestTriggerAction_ClearedAfterTick(t *testing.T) {
 	buf := mkBuf("hello")
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 401, Buffer: buf, Width: 400, Height: 200,
+		ID: "e401", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
-	setCursorEnd(d, 401, buf.Line(0))
+	setCursorEnd(d, "e401", buf.Line(0))
 	d.sendChar('!')
 
-	TriggerAction(d.w, 401, "edit.undo")
+	TriggerAction(d.w, "e401", "edit.undo")
 	d.tick()
 
-	st := loadState(d.w, 401)
+	st := loadState(d.w, "e401")
 	if st.PendingAction != "" {
 		t.Errorf("PendingAction=%q after tick, want empty", st.PendingAction)
 	}
@@ -63,10 +63,10 @@ func TestTriggerAction_NotExecutedTwice(t *testing.T) {
 	buf := mkBuf("hello")
 	count := 0
 	d := newDriver(EditorCfg{
-		IDFocus: 402,
-		Buffer:  buf,
-		Width:   400,
-		Height:  200,
+		ID:     "e402",
+		Buffer: buf,
+		Width:  400,
+		Height: 200,
 		Actions: map[string]Action{
 			"test.counter": {
 				ID: "test.counter",
@@ -80,7 +80,7 @@ func TestTriggerAction_NotExecutedTwice(t *testing.T) {
 	})
 	d.tick()
 
-	TriggerAction(d.w, 402, "test.counter")
+	TriggerAction(d.w, "e402", "test.counter")
 	d.tick()
 	d.tick()
 	d.tick()
@@ -96,10 +96,10 @@ func TestTriggerAction_CfgActionsOverrideDefault(t *testing.T) {
 	fired := false
 
 	d := newDriver(EditorCfg{
-		IDFocus: 403,
-		Buffer:  buf,
-		Width:   400,
-		Height:  200,
+		ID:     "e403",
+		Buffer: buf,
+		Width:  400,
+		Height: 200,
 		Actions: map[string]Action{
 			"edit.undo": {
 				ID: "edit.undo",
@@ -112,11 +112,11 @@ func TestTriggerAction_CfgActionsOverrideDefault(t *testing.T) {
 		},
 	})
 	d.tick()
-	setCursorEnd(d, 403, buf.Line(0))
+	setCursorEnd(d, "e403", buf.Line(0))
 	d.sendChar('!')
 	before := string(buf.Line(0)) // "hello!"
 
-	TriggerAction(d.w, 403, "edit.undo")
+	TriggerAction(d.w, "e403", "edit.undo")
 	d.tick()
 
 	if !fired {
@@ -136,21 +136,21 @@ func TestTriggerAction_PerCursorDispatchMultiCursor(t *testing.T) {
 	buf.Props.FilePath = "test.go"
 	buf.EnableUndo(nil)
 	d := newDriver(EditorCfg{
-		IDFocus: 404,
-		Buffer:  buf,
-		Width:   400,
-		Height:  200,
+		ID:     "e404",
+		Buffer: buf,
+		Width:  400,
+		Height: 200,
 		LangConfigs: map[string]LangConfig{
 			".go": {CommentLine: "//"},
 		},
 	})
 	d.tick()
 	// Place cursors on both lines.
-	st := loadState(d.w, 404)
+	st := loadState(d.w, "e404")
 	st.Cursors = []CursorState{mkCursor(0, 0), mkCursor(1, 0)}
-	storeState(d.w, 404, st)
+	storeState(d.w, "e404", st)
 
-	TriggerAction(d.w, 404, "edit.toggleComment")
+	TriggerAction(d.w, "e404", "edit.toggleComment")
 	d.tick()
 
 	line0 := string(buf.Line(0))
@@ -166,11 +166,11 @@ func TestTriggerAction_PerCursorDispatchMultiCursor(t *testing.T) {
 func TestTriggerAction_FindOpenActivatesSearch(t *testing.T) {
 	buf := mkBuf("hello world")
 	d := newDriver(EditorCfg{
-		IDFocus: 405, Buffer: buf, Width: 400, Height: 200,
+		ID: "e405", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 
-	TriggerAction(d.w, 405, "find.open")
+	TriggerAction(d.w, "e405", "find.open")
 	d.tick()
 
 	st := d.state()
@@ -185,11 +185,11 @@ func TestTriggerAction_FindOpenActivatesSearch(t *testing.T) {
 func TestTriggerAction_FindOpenReplaceActivatesReplace(t *testing.T) {
 	buf := mkBuf("hello world")
 	d := newDriver(EditorCfg{
-		IDFocus: 406, Buffer: buf, Width: 400, Height: 200,
+		ID: "e406", Buffer: buf, Width: 400, Height: 200,
 	})
 	d.tick()
 
-	TriggerAction(d.w, 406, "find.openReplace")
+	TriggerAction(d.w, "e406", "find.openReplace")
 	d.tick()
 
 	st := d.state()

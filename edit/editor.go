@@ -11,13 +11,14 @@ import (
 
 // EditorCfg configures an Editor widget instance.
 //
-// IDFocus is the focus/state key. Width and Height define the fixed
+// ID is the focus/state key (must be non-empty and unique per
+// editor instance). Width and Height define the fixed
 // viewport size — the Editor manages scrolling inside this rectangle
 // and never virtualizes through go-gui's Column-scroll mechanism
 // (DrawCanvas caches the full draw output, which defeats line
 // virtualization).
 type EditorCfg struct {
-	IDFocus          uint32
+	ID               string
 	Buffer           *buffer.Buffer
 	Width            float32
 	Height           float32
@@ -191,12 +192,12 @@ func Editor(cfg EditorCfg) gui.View {
 		a11yState = gui.AccessStateReadOnly
 	}
 
-	// Stable per-IDFocus canvas ID lets go-gui's DrawCanvas cache
+	// Stable per-ID canvas ID lets go-gui's DrawCanvas cache
 	// reuse tessellated output across frames whose Version hasn't
 	// changed. Distinct editors get distinct cache slots. The
 	// Version is mutated in-place on the canvas's shape at the end
 	// of editorAmendLayout so it reflects the current frame state.
-	canvasID := "edit.canvas." + strconv.FormatUint(uint64(cfg.IDFocus), 10)
+	canvasID := "edit.canvas." + cfg.ID
 	canvas := gui.DrawCanvas(gui.DrawCanvasCfg{
 		ID:              canvasID,
 		Width:           cfg.Width,
@@ -215,8 +216,8 @@ func Editor(cfg EditorCfg) gui.View {
 	// top-left so it sits exactly over the main canvas. The main
 	// canvas keeps its tessellation cache untouched across blink
 	// transitions, while this tiny overlay (a few rects) repaints
-	// freely. The wrapper has IDFocus=0 and no event handlers so
-	// mouse clicks fall through to the main canvas underneath.
+	// freely. The wrapper is not focusable and has no event handlers
+	// so mouse clicks fall through to the main canvas underneath.
 	cursorCanvas := gui.DrawCanvas(gui.DrawCanvasCfg{
 		ID:     "",
 		Width:  cfg.Width,
@@ -237,7 +238,8 @@ func Editor(cfg EditorCfg) gui.View {
 	})
 
 	return gui.Column(gui.ContainerCfg{
-		IDFocus:     cfg.IDFocus,
+		ID:          cfg.ID,
+		Focusable:   true,
 		Width:       cfg.Width,
 		Height:      cfg.Height,
 		Sizing:      gui.FixedFixed,
