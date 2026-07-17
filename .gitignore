@@ -17,7 +17,8 @@ main
 *.so
 *.dylib
 
-# Built example binaries
+# Built example binaries / macOS app bundle
+Npad.app/
 
 # Test binary
 *.test
