@@ -122,7 +122,7 @@ func TestDriver_MouseScrollNaNDropped(t *testing.T) {
 	})
 	d.tick()
 	before := d.state().ScrollY
-	d.wheel(d.ly, fakewin.NewScrollEvent(float32(math.NaN())), d.w)
+	d.wheel(d.ctx(fakewin.NewScrollEvent(float32(math.NaN()))))
 	if d.state().ScrollY != before {
 		t.Errorf("ScrollY changed on NaN event")
 	}
@@ -135,7 +135,7 @@ func TestDriver_MouseScrollAbsurdDropped(t *testing.T) {
 	})
 	d.tick()
 	before := d.state().ScrollY
-	d.wheel(d.ly, fakewin.NewScrollEvent(1e9), d.w)
+	d.wheel(d.ctx(fakewin.NewScrollEvent(1e9)))
 	if d.state().ScrollY != before {
 		t.Errorf("ScrollY changed on absurd event: %v→%v",
 			before, d.state().ScrollY)
@@ -523,7 +523,7 @@ func TestOnClick_CanvasOriginNaNGuard(t *testing.T) {
 	nan := float32(math.NaN())
 	ly := &gui.Layout{Shape: &gui.Shape{X: nan, Y: nan}}
 	e := fakewin.NewClickEvent(0, 0, 0)
-	d.click(ly, e, d.w)
+	d.click(gui.EventCtx{Layout: ly, Event: e, Window: d.w})
 
 	// Origins should retain prior valid values.
 	if d.frame.canvasOriginX != 10 {
@@ -611,8 +611,8 @@ func TestEditor_DoubleMountPanics(t *testing.T) {
 	// in the same render tree at the same frame.
 	ly1 := &gui.Layout{}
 	ly2 := &gui.Layout{}
-	amend(ly1, w)
-	amend(ly2, w) // must panic
+	amend(gui.EventCtx{Layout: ly1, Window: w})
+	amend(gui.EventCtx{Layout: ly2, Window: w}) // must panic
 }
 
 // TestEditor_ReuseLayoutDoesNotPanic verifies the guard tolerates
@@ -629,7 +629,7 @@ func TestEditor_ReuseLayoutDoesNotPanic(t *testing.T) {
 	w := fakewin.New()
 	ly := &gui.Layout{}
 	for range 5 {
-		amend(ly, w)
+		amend(gui.EventCtx{Layout: ly, Window: w})
 	}
 }
 
@@ -654,7 +654,7 @@ func TestEditor_DrawVersion_StableOnUnchangedFrame(t *testing.T) {
 	w := fakewin.New()
 	ly := &gui.Layout{Children: []gui.Layout{{Shape: &gui.Shape{}}}}
 
-	amend(ly, w)
+	amend(gui.EventCtx{Layout: ly, Window: w})
 	v1 := frame.drawVersion
 	if v1 == 0 {
 		t.Fatal("drawVersion should never be 0 (collision with initial shape version)")
@@ -663,7 +663,7 @@ func TestEditor_DrawVersion_StableOnUnchangedFrame(t *testing.T) {
 		t.Fatalf("shape.Version = %d, want %d", got, v1)
 	}
 
-	amend(ly, w)
+	amend(gui.EventCtx{Layout: ly, Window: w})
 	v2 := frame.drawVersion
 	if v2 != v1 {
 		t.Fatalf("drawVersion drifted with no state change: v1=%d v2=%d", v1, v2)
@@ -682,7 +682,7 @@ func TestEditor_DrawVersion_ChangesOnEdit(t *testing.T) {
 	w := fakewin.New()
 	ly := &gui.Layout{Children: []gui.Layout{{Shape: &gui.Shape{}}}}
 
-	amend(ly, w)
+	amend(gui.EventCtx{Layout: ly, Window: w})
 	v1 := frame.drawVersion
 
 	buf.Apply(buffer.Edit{
@@ -692,7 +692,7 @@ func TestEditor_DrawVersion_ChangesOnEdit(t *testing.T) {
 		},
 		NewBytes: []byte("x"),
 	})
-	amend(ly, w)
+	amend(gui.EventCtx{Layout: ly, Window: w})
 	v2 := frame.drawVersion
 	if v1 == v2 {
 		t.Fatalf("drawVersion did not change after buffer edit: %d", v1)
@@ -753,7 +753,7 @@ func TestEditor_DrawVersion_StableUnderNaNScroll(t *testing.T) {
 	nan := float32(math.NaN())
 	st.ScrollY = nan
 	storeState(w, cfg.ID, st)
-	amend(ly, w)
+	amend(gui.EventCtx{Layout: ly, Window: w})
 	v1 := frame.drawVersion
 
 	// Re-inject a *different* NaN (multiple bit patterns) and
@@ -762,7 +762,7 @@ func TestEditor_DrawVersion_StableUnderNaNScroll(t *testing.T) {
 	st.ScrollY = float32(math.Float64frombits(
 		math.Float64bits(math.NaN()) | 1))
 	storeState(w, cfg.ID, st)
-	amend(ly, w)
+	amend(gui.EventCtx{Layout: ly, Window: w})
 	v2 := frame.drawVersion
 	if v1 != v2 {
 		t.Errorf("drawVersion drifted across NaN bit patterns: %d vs %d",
@@ -793,7 +793,7 @@ func TestEditor_DrawVersion_ChangesOnFindBarState(t *testing.T) {
 		st.Search.FieldCursor = 0
 		storeState(w, cfg.ID, st)
 	}
-	amend(ly, w)
+	amend(gui.EventCtx{Layout: ly, Window: w})
 	base := frame.drawVersion
 
 	mutate := func(name string, fn func(*editorState)) {
@@ -801,7 +801,7 @@ func TestEditor_DrawVersion_ChangesOnFindBarState(t *testing.T) {
 		st := loadState(w, cfg.ID)
 		fn(&st)
 		storeState(w, cfg.ID, st)
-		amend(ly, w)
+		amend(gui.EventCtx{Layout: ly, Window: w})
 		if frame.drawVersion == base {
 			t.Fatalf("%s: drawVersion did not change", name)
 		}
@@ -839,7 +839,7 @@ func TestEditor_DrawVersion_ChangesOnScroll(t *testing.T) {
 	w := fakewin.New()
 	ly := &gui.Layout{Children: []gui.Layout{{Shape: &gui.Shape{}}}}
 
-	amend(ly, w)
+	amend(gui.EventCtx{Layout: ly, Window: w})
 	v1 := frame.drawVersion
 
 	// Mutate persisted scroll directly via StateMap.
@@ -847,7 +847,7 @@ func TestEditor_DrawVersion_ChangesOnScroll(t *testing.T) {
 	st.ScrollY = 50
 	storeState(w, cfg.ID, st)
 
-	amend(ly, w)
+	amend(gui.EventCtx{Layout: ly, Window: w})
 	v2 := frame.drawVersion
 	if v1 == v2 {
 		t.Fatalf("drawVersion did not change after scroll: %d", v1)
@@ -965,13 +965,13 @@ func TestEditorOnFileDrop_EmptyPathSkipsCallback(t *testing.T) {
 		OnFileDrop: func(_ string, _ *gui.Window) { called = true },
 	}
 	fn := editorOnFileDrop(cfg)
-	e := &gui.Event{FilePath: ""}
-	fn(nil, e, nil)
+	e := &gui.Event{FilePath: "", IsHandled: true}
+	fn(gui.EventCtx{Event: e})
 	if called {
 		t.Fatal("callback invoked for empty path")
 	}
 	if e.IsHandled {
-		t.Fatal("IsHandled set for empty path")
+		t.Fatal("empty path should bubble, not consume")
 	}
 }
 
@@ -981,13 +981,13 @@ func TestEditorOnFileDrop_ValidPathInvokesCallback(t *testing.T) {
 		OnFileDrop: func(path string, _ *gui.Window) { got = path },
 	}
 	fn := editorOnFileDrop(cfg)
-	e := &gui.Event{FilePath: "/tmp/test.txt"}
-	fn(nil, e, nil)
+	e := &gui.Event{FilePath: "/tmp/test.txt", IsHandled: true}
+	fn(gui.EventCtx{Event: e})
 	if got != "/tmp/test.txt" {
 		t.Fatalf("got %q, want /tmp/test.txt", got)
 	}
 	if !e.IsHandled {
-		t.Fatal("IsHandled not set")
+		t.Fatal("handled drop should stay consumed")
 	}
 }
 

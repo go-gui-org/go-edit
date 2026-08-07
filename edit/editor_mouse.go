@@ -105,18 +105,21 @@ func hitTestLocal(
 func editorOnClick(
 	cfg EditorCfg,
 	frame *editorFrameData,
-) func(*gui.Layout, *gui.Event, *gui.Window) {
-	return func(layout *gui.Layout, e *gui.Event, w *gui.Window) {
+) func(gui.EventCtx) {
+	return func(ctx gui.EventCtx) {
 		if !frame.valid {
+			// No layout yet, so there is nothing to hit-test
+			// against; the click is not ours to claim.
+			ctx.Bubble()
 			return
 		}
-		st := loadState(w, cfg.ID)
+		st := loadState(ctx.Window, cfg.ID)
 		resetBlink(cfg, &st)
 
 		// Capture canvas origin for MouseLock drag coord
 		// translation. Guard NaN from layout.
-		if layout.Shape != nil {
-			ox, oy := layout.Shape.X, layout.Shape.Y
+		if ctx.Layout.Shape != nil {
+			ox, oy := ctx.Layout.Shape.X, ctx.Layout.Shape.Y
 			if ox == ox { // not NaN
 				frame.canvasOriginX = ox
 			}
@@ -127,11 +130,11 @@ func editorOnClick(
 
 		// Gutter click: toggle fold.
 		if cfg.EnableFolding && cfg.ShowLineNumbers &&
-			e.MouseX < frame.gutterW {
+			ctx.Event.MouseX < frame.gutterW {
 			lh := frame.lineHeight
 			if lh > 0 {
 				visRow := int(
-					(e.MouseY + st.ScrollY) / lh)
+					(ctx.Event.MouseY + st.ScrollY) / lh)
 				var line int
 				if frame.wrapActive && st.Measurer != nil {
 					line, _ = globalVisualRowToLogical(
@@ -155,8 +158,8 @@ func editorOnClick(
 					st.FoldedRanges = toggleFold(
 						st.FoldedRanges,
 						cfg.Buffer, line, tw)
-					storeState(w, cfg.ID, st)
-					e.IsHandled = true
+					storeState(ctx.Window, cfg.ID, st)
+					ctx.Consume()
 					return
 				}
 			}
@@ -165,10 +168,10 @@ func editorOnClick(
 		// Vertical scrollbar click: jump to proportion or drag thumb.
 		if scrollbarVisible(cfg.Scrollbar, frame.totalVisRows,
 			frame.lineHeight, cfg.Height) &&
-			e.MouseX >= cfg.Width-scrollbarWidth {
-			handleScrollbarClick(cfg, frame, &st, e, w)
-			storeState(w, cfg.ID, st)
-			e.IsHandled = true
+			ctx.Event.MouseX >= cfg.Width-scrollbarWidth {
+			handleScrollbarClick(cfg, frame, &st, ctx.Event, ctx.Window)
+			storeState(ctx.Window, cfg.ID, st)
+			ctx.Consume()
 			return
 		}
 
@@ -176,14 +179,14 @@ func editorOnClick(
 		textAreaW := cfg.Width - frame.gutterW - frame.padLeft
 		if scrollbarHorizVisible(cfg.Scrollbar, frame.wrapActive,
 			frame.maxContentW, textAreaW) &&
-			e.MouseY >= cfg.Height-scrollbarWidth {
-			handleHorizScrollbarClick(cfg, frame, &st, e, w)
-			storeState(w, cfg.ID, st)
-			e.IsHandled = true
+			ctx.Event.MouseY >= cfg.Height-scrollbarWidth {
+			handleHorizScrollbarClick(cfg, frame, &st, ctx.Event, ctx.Window)
+			storeState(ctx.Window, cfg.ID, st)
+			ctx.Consume()
 			return
 		}
 
-		pos := hitTestPosition(e, frame, cfg.Buffer, -1)
+		pos := hitTestPosition(ctx.Event, frame, cfg.Buffer, -1)
 		now := time.Now().UnixMilli()
 
 		// Click count detection. Use line-only match so minor
@@ -217,14 +220,14 @@ func editorOnClick(
 			p.Cursor = buffer.Position{Line: pos.Line, ByteCol: lineLen}
 			p.DesiredCol = p.Cursor.ByteCol
 		default: // single click
-			if e.Modifiers.Has(gui.ModAlt) {
+			if ctx.Event.Modifiers.Has(gui.ModAlt) {
 				// Alt-click adds a cursor.
 				addCursor(&st, CursorState{
 					Cursor:     pos,
 					Anchor:     pos,
 					DesiredCol: pos.ByteCol,
 				})
-			} else if e.Modifiers.Has(gui.ModShift) {
+			} else if ctx.Event.Modifiers.Has(gui.ModShift) {
 				// Shift-click extends primary selection,
 				// drops secondary cursors.
 				collapseToPrimary(&st)
@@ -242,15 +245,14 @@ func editorOnClick(
 		}
 
 		ensureCursorVisible(&st, frame, cfg)
-		storeState(w, cfg.ID, st)
+		storeState(ctx.Window, cfg.ID, st)
 
 		// Start drag via MouseLock for single clicks
 		// (not alt-click).
-		if st.ClickCount == 1 && !e.Modifiers.Has(gui.ModAlt) {
-			startDrag(cfg, frame, w)
+		if st.ClickCount == 1 && !ctx.Event.Modifiers.Has(gui.ModAlt) {
+			startDrag(cfg, frame, ctx.Window)
 		}
 
-		e.IsHandled = true
 	}
 }
 
@@ -299,24 +301,24 @@ func startDrag(cfg EditorCfg, frame *editorFrameData, w *gui.Window) {
 	}
 
 	w.MouseLock(gui.MouseLockCfg{
-		MouseMove: func(_ *gui.Layout, e *gui.Event, w *gui.Window) {
+		MouseMove: func(ctx gui.EventCtx) {
 			if !frame.valid {
 				return
 			}
-			lx := e.MouseX - frame.canvasOriginX
-			ly := e.MouseY - frame.canvasOriginY
+			lx := ctx.Event.MouseX - frame.canvasOriginX
+			ly := ctx.Event.MouseY - frame.canvasOriginY
 			if lx != lx || ly != ly { // NaN guard
 				return
 			}
 			lastLocalX = lx
 			lastLocalY = ly
-			dragUpdate(lastLocalX, lastLocalY, -1, w)
+			dragUpdate(lastLocalX, lastLocalY, -1, ctx.Window)
 
 			outside := lastLocalY < 0 ||
 				lastLocalY > cfg.Height
-			if outside && !w.HasAnimation(
+			if outside && !ctx.Window.HasAnimation(
 				animIDEditorDragScroll) {
-				w.AnimationAdd(&gui.Animate{
+				ctx.Window.AnimationAdd(&gui.Animate{
 					AnimID: animIDEditorDragScroll,
 					Delay: dragScrollIntervalMs *
 						time.Millisecond,
@@ -325,12 +327,12 @@ func startDrag(cfg EditorCfg, frame *editorFrameData, w *gui.Window) {
 					Callback: dragScrollCB,
 				})
 			} else if !outside {
-				w.AnimationRemove(animIDEditorDragScroll)
+				ctx.Window.AnimationRemove(animIDEditorDragScroll)
 			}
 		},
-		MouseUp: func(_ *gui.Layout, _ *gui.Event, w *gui.Window) {
-			w.AnimationRemove(animIDEditorDragScroll)
-			w.MouseUnlock()
+		MouseUp: func(ctx gui.EventCtx) {
+			ctx.Window.AnimationRemove(animIDEditorDragScroll)
+			ctx.Window.MouseUnlock()
 		},
 	})
 }
@@ -418,11 +420,11 @@ func startHorizScrollbarDrag(
 	dragOffset float32,
 ) {
 	w.MouseLock(gui.MouseLockCfg{
-		MouseMove: func(_ *gui.Layout, e *gui.Event, w *gui.Window) {
+		MouseMove: func(ctx gui.EventCtx) {
 			if !frame.valid {
 				return
 			}
-			lx := e.MouseX - frame.canvasOriginX - frame.gutterW
+			lx := ctx.Event.MouseX - frame.canvasOriginX - frame.gutterW
 			if lx != lx { // NaN
 				return
 			}
@@ -447,13 +449,13 @@ func startHorizScrollbarDrag(
 			if thumbRange <= 0 || maxScrollX <= 0 {
 				return
 			}
-			st := loadState(w, cfg.ID)
+			st := loadState(ctx.Window, cfg.ID)
 			st.ScrollX = (lx - dragOffset) / thumbRange * maxScrollX
 			clampScrollX(&st, maxScrollX)
-			storeState(w, cfg.ID, st)
+			storeState(ctx.Window, cfg.ID, st)
 		},
-		MouseUp: func(_ *gui.Layout, _ *gui.Event, w *gui.Window) {
-			w.MouseUnlock()
+		MouseUp: func(ctx gui.EventCtx) {
+			ctx.Window.MouseUnlock()
 		},
 	})
 }
@@ -467,12 +469,12 @@ func startScrollbarDrag(
 	dragOffset float32,
 ) {
 	w.MouseLock(gui.MouseLockCfg{
-		MouseMove: func(_ *gui.Layout, e *gui.Event, w *gui.Window) {
+		MouseMove: func(ctx gui.EventCtx) {
 			if !frame.valid {
 				return
 			}
 			// MouseLock delivers window coords; convert to canvas-local.
-			ly := e.MouseY - frame.canvasOriginY
+			ly := ctx.Event.MouseY - frame.canvasOriginY
 			if ly != ly { // NaN
 				return
 			}
@@ -492,23 +494,23 @@ func startScrollbarDrag(
 			if thumbRange <= 0 || maxScroll <= 0 {
 				return
 			}
-			st := loadState(w, cfg.ID)
+			st := loadState(ctx.Window, cfg.ID)
 			st.ScrollY = (ly - dragOffset) / thumbRange * maxScroll
 			clampScroll(&st, cfg, frame, lh)
-			storeState(w, cfg.ID, st)
+			storeState(ctx.Window, cfg.ID, st)
 		},
-		MouseUp: func(_ *gui.Layout, _ *gui.Event, w *gui.Window) {
-			w.MouseUnlock()
+		MouseUp: func(ctx gui.EventCtx) {
+			ctx.Window.MouseUnlock()
 		},
 	})
 }
 
-func editorOnMouseScroll(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.Event, *gui.Window) {
-	return func(layout *gui.Layout, e *gui.Event, w *gui.Window) {
-		dy := e.ScrollY
-		dx := e.ScrollX
+func editorOnMouseScroll(cfg EditorCfg, frame *editorFrameData) func(gui.EventCtx) {
+	return func(ctx gui.EventCtx) {
+		dy := ctx.Event.ScrollY
+		dx := ctx.Event.ScrollX
 		// Shift+vertical scroll → horizontal scroll.
-		if e.Modifiers.Has(gui.ModShift) && dy != 0 && dx == 0 {
+		if ctx.Event.Modifiers.Has(gui.ModShift) && dy != 0 && dx == 0 {
 			dx, dy = dy, 0
 		}
 		// Guard NaN/Inf.
@@ -521,15 +523,15 @@ func editorOnMouseScroll(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout
 		if dy == 0 && dx == 0 {
 			return
 		}
-		st := loadState(w, cfg.ID)
+		st := loadState(ctx.Window, cfg.ID)
 		if st.HelpActive {
 			if dy != 0 {
 				st.HelpScrollY -= dy * frame.lineHeight * 3
 				clampHelpScroll(&st, frame.helpEntries,
 					frame.lineHeight, cfg.Height)
 			}
-			storeState(w, cfg.ID, st)
-			e.IsHandled = true
+			storeState(ctx.Window, cfg.ID, st)
+			ctx.Consume()
 			return
 		}
 		lh := frame.lineHeight
@@ -548,7 +550,7 @@ func editorOnMouseScroll(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout
 			maxScrollX := max(frame.maxContentW+cursorScrollPad-textAreaW, 0)
 			clampScrollX(&st, maxScrollX)
 		}
-		storeState(w, cfg.ID, st)
-		e.IsHandled = true
+		storeState(ctx.Window, cfg.ID, st)
+		ctx.Consume()
 	}
 }
