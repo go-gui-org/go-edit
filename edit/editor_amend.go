@@ -38,7 +38,7 @@ func checkDoubleMount(
 // persistent state, lazily builds the text Measurer, recomputes
 // per-frame layout metrics, and publishes them via the frame struct
 // so OnDraw can read them.
-func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.Window) {
+func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(gui.EventCtx) {
 	invalidateSent := false
 	var searchEditRemove func()
 	var autoCloseRemove func()
@@ -46,15 +46,15 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 	var visRowsEditRemove func()
 	var maxContentEditRemove func()
 
-	return func(layout *gui.Layout, w *gui.Window) {
-		checkDoubleMount(frame, layout, w)
+	return func(ctx gui.EventCtx) {
+		checkDoubleMount(frame, ctx.Layout, ctx.Window)
 		frame.imeCommitted = false
-		st := loadState(w, cfg.ID)
+		st := loadState(ctx.Window, cfg.ID)
 		if st.Measurer != nil {
 			st.Measurer.InvalidateCache()
 		}
 		if st.Measurer == nil {
-			st.Measurer = text.New(w, editorMonoStyle(cfg, gui.CurrentTheme()))
+			st.Measurer = text.New(ctx.Window, editorMonoStyle(cfg, gui.CurrentTheme()))
 			if st.Measurer == nil {
 				// No backend (headless). Bail; draw will no-op.
 				frame.valid = false
@@ -65,7 +65,7 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 		// Provide RequestRedraw thunk to async decoration
 		// providers once.
 		if !invalidateSent && cfg.OnInvalidate != nil {
-			cfg.OnInvalidate(w.RequestRedraw)
+			cfg.OnInvalidate(ctx.Window.RequestRedraw)
 			invalidateSent = true
 		}
 
@@ -138,9 +138,9 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 		}
 
 		searchEditRemove = syncSearchObserver(
-			cfg, &st, w, searchEditRemove)
+			cfg, &st, ctx.Window, searchEditRemove)
 		autoCloseRemove = syncAutoCloseFilter(cfg, autoCloseRemove)
-		foldEditRemove = syncFoldObserver(cfg, w, foldEditRemove)
+		foldEditRemove = syncFoldObserver(cfg, ctx.Window, foldEditRemove)
 
 		computeBracketMatch(cfg, &st, frame)
 		computeStickyScroll(cfg, &st, frame, lh)
@@ -156,9 +156,9 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 			frame.helpEntries = gatherHelp(hs)
 		}
 
-		executePendingAction(cfg, &st, frame, w)
+		executePendingAction(cfg, &st, frame, ctx.Window)
 
-		computeBlink(cfg, &st, frame, w)
+		computeBlink(cfg, &st, frame, ctx.Window)
 
 		frame.state = st
 		frame.lineHeight = lh
@@ -166,18 +166,18 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, 
 		frame.padLeft = advance / 2
 		frame.valid = true
 
-		updateCanvasOrigin(layout, frame)
-		updateIMEState(cfg, &st, frame, w, gutterW,
+		updateCanvasOrigin(ctx.Layout, frame)
+		updateIMEState(cfg, &st, frame, ctx.Window, gutterW,
 			advance, lh, wrapActive)
 
 		// go-gui skips OnDraw when Version matches the prior frame.
 		frame.drawVersion = computeDrawVersion(cfg, &st, frame)
-		if len(layout.Children) > 0 &&
-			layout.Children[0].Shape != nil {
-			layout.Children[0].Shape.Version = frame.drawVersion
+		if len(ctx.Layout.Children) > 0 &&
+			ctx.Layout.Children[0].Shape != nil {
+			ctx.Layout.Children[0].Shape.Version = frame.drawVersion
 		}
 
-		storeState(w, cfg.ID, st)
+		storeState(ctx.Window, cfg.ID, st)
 	}
 }
 

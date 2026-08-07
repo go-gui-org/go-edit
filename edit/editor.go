@@ -259,17 +259,18 @@ func Editor(cfg EditorCfg) gui.View {
 
 // editorOnFileDrop returns the OnFileDrop callback for the root
 // container. Returns nil when cfg.OnFileDrop is unset.
-func editorOnFileDrop(cfg EditorCfg) func(*gui.Layout, *gui.Event, *gui.Window) {
+func editorOnFileDrop(cfg EditorCfg) func(gui.EventCtx) {
 	if cfg.OnFileDrop == nil {
 		return nil
 	}
 	cb := cfg.OnFileDrop
-	return func(_ *gui.Layout, e *gui.Event, w *gui.Window) {
-		if e.FilePath == "" {
+	return func(ctx gui.EventCtx) {
+		if ctx.Event.FilePath == "" {
+			// An empty drop is not a file we handled.
+			ctx.Bubble()
 			return
 		}
-		cb(e.FilePath, w)
-		e.IsHandled = true
+		cb(ctx.Event.FilePath, ctx.Window)
 	}
 }
 

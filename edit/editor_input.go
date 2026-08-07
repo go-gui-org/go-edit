@@ -81,7 +81,7 @@ func isEditAction(id string) bool {
 	return strings.HasPrefix(id, "edit.")
 }
 
-func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.Event, *gui.Window) {
+func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(gui.EventCtx) {
 	// Build keymap stack and action registry once at closure
 	// creation time.
 	stack := &KeymapStack{}
@@ -112,7 +112,7 @@ func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *g
 	}
 	maps.Copy(actions, cfg.Actions)
 
-	return func(layout *gui.Layout, e *gui.Event, w *gui.Window) {
+	return func(ctx gui.EventCtx) {
 		// While an IME composition is active (or was active
 		// this frame), suppress all keymap actions. The IME
 		// owns the keyboard; keys like Enter (accept) and
@@ -121,32 +121,32 @@ func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *g
 		// AmendLayout; imeCommitted is set by editorOnChar
 		// on commit (the EventChar may fire after KeyDown).
 		if frame.imeComposing || frame.imeCommitted {
-			e.IsHandled = true
+			ctx.Consume()
 			return
 		}
 
-		st := loadState(w, cfg.ID)
+		st := loadState(ctx.Window, cfg.ID)
 
 		// Overlay intercepts: help and find bar get first crack.
 		if st.HelpActive {
-			handleHelpKey(&st, e, frame.lineHeight,
+			handleHelpKey(&st, ctx.Event, frame.lineHeight,
 				cfg.Height, frame.helpEntries)
 			resetBlink(cfg, &st)
-			storeState(w, cfg.ID, st)
-			e.IsHandled = true
+			storeState(ctx.Window, cfg.ID, st)
+			ctx.Event.IsHandled = true
 			return
 		}
 		if st.Search.Active {
-			if handleSearchKey(cfg, &st, cfg.Buffer, e) {
+			if handleSearchKey(cfg, &st, cfg.Buffer, ctx.Event) {
 				ensureCursorVisible(&st, frame, cfg)
 				resetBlink(cfg, &st)
-				storeState(w, cfg.ID, st)
-				e.IsHandled = true
+				storeState(ctx.Window, cfg.ID, st)
+				ctx.Event.IsHandled = true
 				return
 			}
 		}
 
-		actionID, ok := stack.Resolve(e.KeyCode, e.Modifiers)
+		actionID, ok := stack.Resolve(ctx.Event.KeyCode, ctx.Event.Modifiers)
 		if !ok {
 			return
 		}
@@ -171,9 +171,9 @@ func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *g
 		}
 
 		if action.PerCursor && len(st.Cursors) > 1 {
-			dispatchPerCursor(cfg, &st, cfg.Buffer, w, action, isEdit, frame)
+			dispatchPerCursor(cfg, &st, cfg.Buffer, ctx.Window, action, isEdit, frame)
 		} else {
-			action.Execute(cfg, &st, cfg.Buffer, w)
+			action.Execute(cfg, &st, cfg.Buffer, ctx.Window)
 			applyPostAction(&st, action, cfg.Buffer, frame)
 		}
 
@@ -197,13 +197,13 @@ func editorOnKeyDown(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *g
 
 		sortAndMerge(&st)
 		ensureCursorVisible(&st, frame, cfg)
-		storeState(w, cfg.ID, st)
-		e.IsHandled = true
+		storeState(ctx.Window, cfg.ID, st)
+		ctx.Event.IsHandled = true
 	}
 }
 
-func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.Event, *gui.Window) {
-	return func(layout *gui.Layout, e *gui.Event, w *gui.Window) {
+func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(gui.EventCtx) {
+	return func(ctx gui.EventCtx) {
 		// While composing, the OS sends EventChar for each raw
 		// phonetic keystroke (e.g. "k", "a", "n" while
 		// building "かん"). These must not be inserted into the
@@ -215,8 +215,8 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 		//
 		// Detect commit vs. mid-composition: w.IMEComposing()
 		// is false on commit, true mid-composition.
-		if w.IMEComposing() {
-			e.IsHandled = true
+		if ctx.Window.IMEComposing() {
+			ctx.Consume()
 			return
 		}
 		if frame.imeComposing {
@@ -232,57 +232,66 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 		// path below. All backends set IMEText on every
 		// EventChar, so checking len > 1 rune distinguishes
 		// true multi-codepoint IME commits from normal typing.
-		if utf8.RuneCountInString(e.IMEText) > 1 {
-			st := loadState(w, cfg.ID)
+		if utf8.RuneCountInString(ctx.Event.IMEText) > 1 {
+			st := loadState(ctx.Window, cfg.ID)
 			if st.HelpActive {
-				e.IsHandled = true
+				ctx.Consume()
 				return
 			}
 			if st.Search.Active {
 				handleSearchString(
-					&st, cfg.Buffer, e.IMEText)
+					&st, cfg.Buffer, ctx.Event.IMEText)
 				resetBlink(cfg, &st)
-				storeState(w, cfg.ID, st)
-				e.IsHandled = true
+				storeState(ctx.Window, cfg.ID, st)
+				ctx.Consume()
 				return
 			}
 			if cfg.ReadOnly {
+				// A read-only editor never claims typed
+				// input; let it reach the parent.
+				ctx.Bubble()
 				return
 			}
 			resetBlink(cfg, &st)
 			cfg.Buffer.SetUndoCursorState(
 				buildUndoCursorState(&st))
 			charInsertPerCursor(
-				&st, cfg.Buffer, []byte(e.IMEText))
+				&st, cfg.Buffer, []byte(ctx.Event.IMEText))
 			sortAndMerge(&st)
 			ensureCursorVisible(&st, frame, cfg)
-			storeState(w, cfg.ID, st)
-			e.IsHandled = true
+			storeState(ctx.Window, cfg.ID, st)
+			ctx.Consume()
 			return
 		}
 
-		r := rune(e.CharCode)
+		r := rune(ctx.Event.CharCode)
 		if !acceptChar(r) {
+			// Control characters are not ours: consuming
+			// them here would swallow Tab traversal and
+			// accelerators.
+			ctx.Bubble()
 			return
 		}
 
-		st := loadState(w, cfg.ID)
+		st := loadState(ctx.Window, cfg.ID)
 
 		// Overlay intercepts: help consumes all chars;
 		// find bar routes to search input.
 		if st.HelpActive {
-			e.IsHandled = true
+			ctx.Consume()
 			return
 		}
 		if st.Search.Active {
 			handleSearchChar(&st, cfg.Buffer, r)
 			resetBlink(cfg, &st)
-			storeState(w, cfg.ID, st)
-			e.IsHandled = true
+			storeState(ctx.Window, cfg.ID, st)
+			ctx.Event.IsHandled = true
 			return
 		}
 
 		if cfg.ReadOnly {
+			// As above: read-only means "not mine".
+			ctx.Bubble()
 			return
 		}
 		var buf2 [4]byte
@@ -316,8 +325,8 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 				}
 				sortAndMerge(&st)
 				ensureCursorVisible(&st, frame, cfg)
-				storeState(w, cfg.ID, st)
-				e.IsHandled = true
+				storeState(ctx.Window, cfg.ID, st)
+				ctx.Consume()
 				return
 			}
 		}
@@ -328,8 +337,7 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(*gui.Layout, *gui.
 
 		sortAndMerge(&st)
 		ensureCursorVisible(&st, frame, cfg)
-		storeState(w, cfg.ID, st)
-		e.IsHandled = true
+		storeState(ctx.Window, cfg.ID, st)
 	}
 }
 

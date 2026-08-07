@@ -11,7 +11,7 @@ import (
 // sendIMEChar dispatches an IME commit event through the driver.
 func (d *driver) sendIMEChar(text string) {
 	d.tick()
-	d.char(d.ly, fakewin.NewIMECharEvent(text), d.w)
+	d.char(d.ctx(fakewin.NewIMECharEvent(text)))
 }
 
 func TestIME_CommitInsertsFull(t *testing.T) {
@@ -135,9 +135,9 @@ func TestIME_CommitSuppressesFollowingEnter(t *testing.T) {
 		d.frame.imeComposing = true
 		// Dispatch char directly (no tick — mirrors real
 		// event loop where events fire before AmendLayout).
-		d.char(d.ly, fakewin.NewIMECharEvent("漢字"), d.w)
+		d.char(d.ctx(fakewin.NewIMECharEvent("漢字")))
 		// Enter keydown the OS sends after the commit.
-		d.key(d.ly, fakewin.NewKeyEvent(gui.KeyEnter, 0), d.w)
+		d.key(d.ctx(fakewin.NewKeyEvent(gui.KeyEnter, 0)))
 		if buf.LineCount() != 1 {
 			t.Fatalf("lines = %d, want 1", buf.LineCount())
 		}
@@ -149,8 +149,8 @@ func TestIME_CommitSuppressesFollowingEnter(t *testing.T) {
 		})
 		d.tick()
 		d.frame.imeComposing = true
-		d.char(d.ly, fakewin.NewIMECharEvent("漢"), d.w)
-		d.key(d.ly, fakewin.NewKeyEvent(gui.KeyEnter, 0), d.w)
+		d.char(d.ctx(fakewin.NewIMECharEvent("漢")))
+		d.key(d.ctx(fakewin.NewKeyEvent(gui.KeyEnter, 0)))
 		if buf.LineCount() != 1 {
 			t.Fatalf("lines = %d, want 1", buf.LineCount())
 		}

@@ -80,7 +80,7 @@ func newBenchEnv(
 	}
 
 	amend := editorAmendLayout(cfg, frame)
-	amend(&gui.Layout{}, w)
+	amend(gui.EventCtx{Layout: &gui.Layout{}, Window: w})
 
 	return benchEnv{
 		cfg:      cfg,

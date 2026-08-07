@@ -13,11 +13,11 @@ import (
 type driver struct {
 	cfg   EditorCfg
 	frame *editorFrameData
-	amend func(*gui.Layout, *gui.Window)
-	key   func(*gui.Layout, *gui.Event, *gui.Window)
-	char  func(*gui.Layout, *gui.Event, *gui.Window)
-	wheel func(*gui.Layout, *gui.Event, *gui.Window)
-	click func(*gui.Layout, *gui.Event, *gui.Window)
+	amend func(gui.EventCtx)
+	key   func(gui.EventCtx)
+	char  func(gui.EventCtx)
+	wheel func(gui.EventCtx)
+	click func(gui.EventCtx)
 	w     *gui.Window
 	ly    *gui.Layout
 }
@@ -37,33 +37,40 @@ func newDriver(cfg EditorCfg) *driver {
 	}
 }
 
+// ctx builds the EventCtx the callbacks now take. The driver always
+// dispatches against its own layout and window, so only the event
+// varies; amend has no originating event and passes nil.
+func (d *driver) ctx(e *gui.Event) gui.EventCtx {
+	return gui.EventCtx{Layout: d.ly, Event: e, Window: d.w}
+}
+
 // tick runs the amend pass so frame is populated and persistent state
 // is synced from the window's StateMap. Call before each event.
-func (d *driver) tick() { d.amend(d.ly, d.w) }
+func (d *driver) tick() { d.amend(d.ctx(nil)) }
 
 func (d *driver) sendKey(code gui.KeyCode) {
 	d.tick()
-	d.key(d.ly, fakewin.NewKeyEvent(code, 0), d.w)
+	d.key(d.ctx(fakewin.NewKeyEvent(code, 0)))
 }
 
 func (d *driver) sendKeyMod(code gui.KeyCode, mods gui.Modifier) {
 	d.tick()
-	d.key(d.ly, fakewin.NewKeyEvent(code, mods), d.w)
+	d.key(d.ctx(fakewin.NewKeyEvent(code, mods)))
 }
 
 func (d *driver) sendClick(x, y float32, mods gui.Modifier) {
 	d.tick()
-	d.click(d.ly, fakewin.NewClickEvent(x, y, mods), d.w)
+	d.click(d.ctx(fakewin.NewClickEvent(x, y, mods)))
 }
 
 func (d *driver) sendChar(r rune) {
 	d.tick()
-	d.char(d.ly, fakewin.NewCharEvent(r), d.w)
+	d.char(d.ctx(fakewin.NewCharEvent(r)))
 }
 
 func (d *driver) sendScroll(dy float32) {
 	d.tick()
-	d.wheel(d.ly, fakewin.NewScrollEvent(dy), d.w)
+	d.wheel(d.ctx(fakewin.NewScrollEvent(dy)))
 }
 
 func (d *driver) state() editorState {
