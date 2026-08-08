@@ -965,13 +965,15 @@ func TestEditorOnFileDrop_EmptyPathSkipsCallback(t *testing.T) {
 		OnFileDrop: func(_ string, _ *gui.Window) { called = true },
 	}
 	fn := editorOnFileDrop(cfg)
-	e := &gui.Event{FilePath: "", IsHandled: true}
+	// No pre-mark since go-gui v0.55.0: the event arrives unhandled
+	// and a declining handler simply leaves it that way.
+	e := &gui.Event{FilePath: ""}
 	fn(gui.EventCtx{Event: e})
 	if called {
 		t.Fatal("callback invoked for empty path")
 	}
 	if e.IsHandled {
-		t.Fatal("empty path should bubble, not consume")
+		t.Fatal("empty path must not be consumed")
 	}
 }
 
@@ -981,7 +983,7 @@ func TestEditorOnFileDrop_ValidPathInvokesCallback(t *testing.T) {
 		OnFileDrop: func(path string, _ *gui.Window) { got = path },
 	}
 	fn := editorOnFileDrop(cfg)
-	e := &gui.Event{FilePath: "/tmp/test.txt", IsHandled: true}
+	e := &gui.Event{FilePath: "/tmp/test.txt"}
 	fn(gui.EventCtx{Event: e})
 	if got != "/tmp/test.txt" {
 		t.Fatalf("got %q, want /tmp/test.txt", got)
