@@ -110,7 +110,6 @@ func editorOnClick(
 		if !frame.valid {
 			// No layout yet, so there is nothing to hit-test
 			// against; the click is not ours to claim.
-			ctx.Bubble()
 			return
 		}
 		st := loadState(ctx.Window, cfg.ID)

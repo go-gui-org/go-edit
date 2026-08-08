@@ -249,7 +249,6 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(gui.EventCtx) {
 			if cfg.ReadOnly {
 				// A read-only editor never claims typed
 				// input; let it reach the parent.
-				ctx.Bubble()
 				return
 			}
 			resetBlink(cfg, &st)
@@ -269,7 +268,6 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(gui.EventCtx) {
 			// Control characters are not ours: consuming
 			// them here would swallow Tab traversal and
 			// accelerators.
-			ctx.Bubble()
 			return
 		}
 
@@ -291,7 +289,6 @@ func editorOnChar(cfg EditorCfg, frame *editorFrameData) func(gui.EventCtx) {
 
 		if cfg.ReadOnly {
 			// As above: read-only means "not mine".
-			ctx.Bubble()
 			return
 		}
 		var buf2 [4]byte

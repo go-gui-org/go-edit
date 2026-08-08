@@ -267,10 +267,12 @@ func editorOnFileDrop(cfg EditorCfg) func(gui.EventCtx) {
 	return func(ctx gui.EventCtx) {
 		if ctx.Event.FilePath == "" {
 			// An empty drop is not a file we handled.
-			ctx.Bubble()
 			return
 		}
 		cb(ctx.Event.FilePath, ctx.Window)
+		// The editor took the drop; nothing above it should also
+		// act on the same paths.
+		ctx.Consume()
 	}
 }
 
