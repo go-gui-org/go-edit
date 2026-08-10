@@ -22,7 +22,7 @@ type EditorCfg struct {
 	Buffer           *buffer.Buffer
 	Width            float32
 	Height           float32
-	Padding          gui.Opt[gui.Padding]
+	Padding          gui.Padding
 	SizeBorder       gui.Opt[float32]
 	ShowLineNumbers  bool
 	ShowBracketMatch bool
