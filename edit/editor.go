@@ -199,15 +199,14 @@ func Editor(cfg EditorCfg) gui.View {
 	// of editorAmendLayout so it reflects the current frame state.
 	canvasID := "edit.canvas." + cfg.ID
 	canvas := gui.DrawCanvas(gui.DrawCanvasCfg{
-		ID:              canvasID,
-		Width:           cfg.Width,
-		Height:          cfg.Height,
-		Clip:            true,
-		A11YLabel:       a11yLabel,
-		A11YDescription: a11yDesc,
-		OnDraw:          editorOnDraw(cfg, frame),
-		OnClick:         editorOnClick(cfg, frame),
-		OnMouseScroll:   editorOnMouseScroll(cfg, frame),
+		ID:            canvasID,
+		Width:         cfg.Width,
+		Height:        cfg.Height,
+		Clip:          true,
+		A11YCfg:       gui.A11YCfg{A11YLabel: a11yLabel, A11YDescription: a11yDesc},
+		OnDraw:        editorOnDraw(cfg, frame),
+		OnClick:       editorOnClick(cfg, frame),
+		OnMouseScroll: editorOnMouseScroll(cfg, frame),
 	})
 
 	// Cursor overlay: a separate DrawCanvas with empty ID
@@ -247,7 +246,7 @@ func Editor(cfg EditorCfg) gui.View {
 		SizeBorder:  cfg.SizeBorder,
 		Clip:        true,
 		A11YRole:    gui.AccessRoleTextArea,
-		A11YLabel:   a11yLabel,
+		A11YCfg:     gui.A11YCfg{A11YLabel: a11yLabel},
 		A11YState:   a11yState,
 		OnKeyDown:   editorOnKeyDown(cfg, frame),
 		OnChar:      editorOnChar(cfg, frame),
