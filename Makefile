@@ -8,6 +8,16 @@ DEMO_BIN     := npad
 APP_NAME     := Npad
 BUILDAPP_DIR := ../go-gui/cmd/buildapp
 BUILDAPP_BIN := $(BUILDAPP_DIR)/buildapp
+# Code-signing identity for the bundle. Empty (the default) means buildapp
+# signs ad-hoc, and an ad-hoc signature has no certificate for TCC to key a
+# permission grant against — TCC falls back to the cdhash, which changes on
+# every build, so each `make app` silently revokes any granted permission
+# while System Settings keeps showing it as granted. Set this to a
+# self-signed code-signing certificate to keep grants across rebuilds:
+#   make app SIGN_IDENTITY="My Dev Cert"
+# BUILDAPP_SIGN_IDENTITY in the environment does the same without the flag.
+SIGN_IDENTITY ?=
+SIGN_FLAG    := $(if $(SIGN_IDENTITY),-sign "$(SIGN_IDENTITY)",)
 
 # Gate recipes resolve modules from go.mod, not from a go.work workspace.
 # CI never sees a workspace file, so a gate that used one would answer a
@@ -68,7 +78,7 @@ $(BUILDAPP_BIN):
 $(APP_NAME).app: $(BUILDAPP_BIN)
 	cd examples/npad && go build -o $(CURDIR)/$(DEMO_BIN) .
 	$(BUILDAPP_BIN) -bundle-deps -o . -name $(APP_NAME) \
-		-id github.com.go-gui-org.go-edit $(DEMO_BIN)
+		-id github.com.go-gui-org.go-edit $(SIGN_FLAG) $(DEMO_BIN)
 
 clean-app:
 	rm -f $(DEMO_BIN)
