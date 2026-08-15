@@ -65,4 +65,7 @@ graphify-out/
 # Anitivibe
 deep-dive/
 
+# Build output (make build-examples)
+build/
+
 
