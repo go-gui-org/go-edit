@@ -4,8 +4,8 @@ go 1.26.0
 
 require (
 	github.com/alecthomas/chroma/v2 v2.27.0
-	github.com/go-gui-org/go-glyph v1.22.0
-	github.com/go-gui-org/go-gui v0.61.0
+	github.com/go-gui-org/go-glyph v1.23.0
+	github.com/go-gui-org/go-gui v0.62.0
 	golang.org/x/text v0.41.0
 )
 
