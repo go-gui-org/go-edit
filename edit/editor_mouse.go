@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/go-gui-org/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-glyph"
 	"github.com/go-gui-org/go-gui/gui"
 )
 
@@ -207,7 +208,7 @@ func editorOnClick(
 			collapseToPrimary(&st)
 			p := st.primary()
 			line := cfg.Buffer.Line(pos.Line)
-			start, end := wordBoundsAtByte(line, pos.ByteCol)
+			start, end := glyph.WordBoundsInString(string(line), pos.ByteCol)
 			p.Anchor = buffer.Position{Line: pos.Line, ByteCol: start}
 			p.Cursor = buffer.Position{Line: pos.Line, ByteCol: end}
 			p.DesiredCol = p.Cursor.ByteCol

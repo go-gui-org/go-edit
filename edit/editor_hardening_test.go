@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-gui-org/go-edit/edit/buffer"
 	"github.com/go-gui-org/go-edit/edit/internal/fakewin"
+	"github.com/go-gui-org/go-glyph"
 	"github.com/go-gui-org/go-gui/gui"
 )
 
@@ -191,8 +192,9 @@ func TestIndentUnit_HugeWidth(t *testing.T) {
 	}
 }
 
-func TestWordBoundsAtByte_NegativeCol(t *testing.T) {
-	s, e := wordBoundsAtByte([]byte("hello"), -5)
+func TestWordBoundsInString_NegativeCol(t *testing.T) {
+	// Clamped to 0 before scanning; must stay in range.
+	s, e := glyph.WordBoundsInString("hello", -5)
 	if s < 0 || e < 0 || e > 5 {
 		t.Errorf("[%d,%d) out of range", s, e)
 	}
