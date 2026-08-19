@@ -523,6 +523,73 @@ func TestDriver_ClickBeyondLineClamps(t *testing.T) {
 	}
 }
 
+// Double-click word select delegates to go-glyph's segmenter; these
+// pin the two call-site regressions (CJK scripts, combining marks)
+// through the real event path, not just the unit boundary.
+
+func TestDriver_DoubleClickCJKSplitsByScript(t *testing.T) {
+	buf := buffer.FromBytes([]byte("日本語のテキスト"))
+	d := newDriver(EditorCfg{
+		ID: "e29a", Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendClick(0, 0, 0)
+	d.sendClick(0, 0, 0) // second click on same line within threshold
+	s := d.cursor()
+	if s.Anchor.ByteCol != 0 || s.Cursor.ByteCol != 9 {
+		t.Errorf("selection [%d,%d) want [0,9)", s.Anchor.ByteCol, s.Cursor.ByteCol)
+	}
+}
+
+func TestDriver_DoubleClickCombiningMarkAttached(t *testing.T) {
+	buf := buffer.FromBytes([]byte("cafe\u0301")) // 'e' + U+0301
+	d := newDriver(EditorCfg{
+		ID: "e29b", Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendClick(0, 0, 0)
+	d.sendClick(0, 0, 0)
+	s := d.cursor()
+	if s.Anchor.ByteCol != 0 || s.Cursor.ByteCol != 6 {
+		t.Errorf("selection [%d,%d) want [0,6)", s.Anchor.ByteCol, s.Cursor.ByteCol)
+	}
+}
+
+func TestDriver_DoubleClickWhitespaceOnlyLineSelectsNothing(t *testing.T) {
+	buf := buffer.FromBytes([]byte("   "))
+	d := newDriver(EditorCfg{
+		ID: "e29c", Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendClick(0, 0, 0)
+	d.sendClick(0, 0, 0)
+	if s := d.cursor(); s.HasSelection() {
+		t.Errorf("got selection [%d,%d) want none",
+			s.Anchor.ByteCol, s.Cursor.ByteCol)
+	}
+}
+
+func TestDriver_AddNextWordSelectsCJKPerScript(t *testing.T) {
+	buf := buffer.FromBytes([]byte("日本語のテキスト"))
+	d := newDriver(EditorCfg{
+		ID: "e29d", Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKeyMod(gui.KeyD, gui.ModCtrl)
+	s := d.cursor()
+	if s.Anchor.ByteCol != 0 || s.Cursor.ByteCol != 9 {
+		t.Errorf("selection [%d,%d) want [0,9)", s.Anchor.ByteCol, s.Cursor.ByteCol)
+	}
+}
+
+func TestDriver_AddNextWordSelectsCombiningMark(t *testing.T) {
+	buf := buffer.FromBytes([]byte("cafe\u0301"))
+	d := newDriver(EditorCfg{
+		ID: "e29e", Buffer: buf, Width: 400, Height: 200,
+	})
+	d.sendKeyMod(gui.KeyD, gui.ModCtrl)
+	s := d.cursor()
+	if s.Anchor.ByteCol != 0 || s.Cursor.ByteCol != 6 {
+		t.Errorf("selection [%d,%d) want [0,6)", s.Anchor.ByteCol, s.Cursor.ByteCol)
+	}
+}
+
 // ---------- Phase 3: undo / redo ----------
 
 func TestDriver_UndoRedoTyping(t *testing.T) {

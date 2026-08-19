@@ -2,6 +2,7 @@ package edit
 
 import (
 	"github.com/go-gui-org/go-edit/edit/buffer"
+	"github.com/go-gui-org/go-glyph"
 	"github.com/go-gui-org/go-gui/gui"
 )
 
@@ -234,7 +235,7 @@ var defaultActions = map[string]Action{
 			if !p.HasSelection() {
 				// First press: select word under cursor.
 				line := buf.Line(p.Cursor.Line)
-				start, end := wordBoundsAtByte(line, p.Cursor.ByteCol)
+				start, end := glyph.WordBoundsInString(string(line), p.Cursor.ByteCol)
 				p.Anchor = buffer.Position{
 					Line: p.Cursor.Line, ByteCol: start,
 				}
