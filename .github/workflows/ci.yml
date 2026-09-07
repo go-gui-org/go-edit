@@ -6,6 +6,22 @@ on:
   pull_request:
     branches: [main]
 
+# Read-only. Nothing here publishes, comments or tags, so the job token
+# needs no more than the checkout.
+permissions:
+  contents: read
+
+# go-edit contains no cgo: no file in the module declares `import "C"`
+# or a #cgo directive. The editor core is pure Go, and the npad example
+# draws through go-gui, which is pure Go on Linux and Windows. The
+# SDL2, FreeType, HarfBuzz, Pango and fontconfig packages this workflow
+# used to install on both platforms were left over from go-glyph's cgo
+# era and are gone.
+#
+# Neither job pins CGO_ENABLED. Linux keeps the toolchain default so
+# -race has the C toolchain it still needs, and macOS keeps it so a
+# darwin build links go-gui's Metal backend rather than silently
+# succeeding without it.
 jobs:
   test:
     name: Test (${{ matrix.os }})
@@ -23,26 +39,6 @@ jobs:
         with:
           go-version: stable
 
-      - name: Install Linux deps
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            pkg-config \
-            libsdl2-dev \
-            libfreetype6-dev \
-            libharfbuzz-dev \
-            libpango1.0-dev \
-            libfontconfig1-dev
-
-      - name: Install macOS deps
-        if: runner.os == 'macOS'
-        run: |
-          brew install pkg-config sdl2 freetype harfbuzz pango fontconfig
-          prefix=$(brew --prefix)
-          echo "PKG_CONFIG_PATH=${prefix}/lib/pkgconfig:${prefix}/share/pkgconfig" >> "$GITHUB_ENV"
-          echo "CGO_ENABLED=1" >> "$GITHUB_ENV"
-
       - name: Test
         working-directory: go-edit
         run: go test ${{ runner.os == 'Linux' && '-race' || '' }} ./edit/...
@@ -58,17 +54,6 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: stable
-
-      - name: Install Linux deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            pkg-config \
-            libsdl2-dev \
-            libfreetype6-dev \
-            libharfbuzz-dev \
-            libpango1.0-dev \
-            libfontconfig1-dev
 
       - name: Vet
         working-directory: go-edit
