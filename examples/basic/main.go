@@ -66,7 +66,7 @@ func main() {
 		Width:  winWidth,
 		Height: winHeight,
 		OnInit: func(w *gui.Window) {
-			w.UpdateView(view)
+			w.SetView(view)
 			w.SetFocus(focusEditor)
 		},
 	})

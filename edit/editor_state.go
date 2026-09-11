@@ -177,7 +177,7 @@ type editorFrameData struct {
 	// keydown that the OS sends after the commit event.
 	imeCommitted bool
 
-	// blinkTimer fires w.RequestRedraw at the next blink
+	// blinkTimer fires w.InvalidateRender at the next blink
 	// transition. Stopped+rescheduled each AmendLayout. Nil when
 	// blink is disabled or running under an injected fake clock.
 	blinkTimer *time.Timer

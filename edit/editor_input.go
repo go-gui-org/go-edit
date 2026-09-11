@@ -58,16 +58,16 @@ func computeBlink(
 	if frame.blinkTimer != nil {
 		frame.blinkTimer.Stop()
 	}
-	// QueueCommand + UpdateWindow (not RequestRedraw) for two
+	// QueueCommand + InvalidateLayout (not InvalidateRender) for two
 	// reasons: (1) QueueCommand calls wakeMain() to post an OS
 	// event that wakes the sleeping backend event loop — plain
-	// RequestRedraw only sets a flag; (2) UpdateWindow triggers
+	// InvalidateRender only sets a flag; (2) InvalidateLayout triggers
 	// a full layout rebuild so AmendLayout fires and
 	// computeBlink recalculates cursorVisible — render-only
 	// refreshes skip AmendLayout entirely.
 	frame.blinkTimer = time.AfterFunc(nextIn, func() {
 		w.QueueCommand(func(w *gui.Window) {
-			w.UpdateWindow()
+			w.InvalidateLayout()
 		})
 	})
 }

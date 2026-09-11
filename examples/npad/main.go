@@ -139,7 +139,7 @@ func main() {
 			s.HL = createHighlighter(s)
 			registerCommands(w)
 			rebuildMenu(s, w)
-			w.UpdateView(mainView)
+			w.SetView(mainView)
 			w.SetFocus(focusEditor)
 		},
 		OnCloseRequest: onCloseRequest,
@@ -549,7 +549,7 @@ func doNew(w *gui.Window) {
 	s.FilePath = ""
 	resetHighlighter(s)
 	syncTitle(w, s)
-	w.UpdateWindow()
+	w.InvalidateLayout()
 }
 
 func cmdOpen(w *gui.Window) {
@@ -595,7 +595,7 @@ func openFile(w *gui.Window, path string) {
 	saveConfig(s)
 	rebuildMenu(s, w)
 	syncTitle(w, s)
-	w.UpdateWindow()
+	w.InvalidateLayout()
 }
 
 func cmdSave(w *gui.Window) {
@@ -655,7 +655,7 @@ func doSave(w *gui.Window, path string) {
 	}
 	rebuildMenu(s, w)
 	syncTitle(w, s)
-	w.UpdateWindow()
+	w.InvalidateLayout()
 }
 
 func cmdClose(w *gui.Window) {
@@ -882,7 +882,7 @@ func handleMenuAction(id string, w *gui.Window) {
 			resetHighlighter(s)
 			saveConfig(s)
 			rebuildMenu(s, w)
-			w.UpdateView(mainView)
+			w.SetView(mainView)
 		}
 
 	// Recent files.

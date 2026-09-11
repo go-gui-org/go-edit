@@ -203,7 +203,7 @@ Architectural notes:
   Chroma v2 doesn't expose per-line lexer state, hence the
   continuation-flag back-off. Background fill beyond the viewport
   is deferred.
-- `OnInvalidate` on `EditorCfg` delivers a `w.RequestRedraw` thunk
+- `OnInvalidate` on `EditorCfg` delivers a `w.InvalidateRender` thunk
   to async providers via `editorAmendLayout`.
 - Hardening: `AddFilter`/`OnEdit` guard nil funcs and double-remove.
   `MarkSet` caps at `MaxMarks` (1M), guards uint32 ID wrap.
