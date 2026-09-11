@@ -62,10 +62,10 @@ func editorAmendLayout(cfg EditorCfg, frame *editorFrameData) func(gui.EventCtx)
 			}
 		}
 
-		// Provide RequestRedraw thunk to async decoration
+		// Provide InvalidateRender thunk to async decoration
 		// providers once.
 		if !invalidateSent && cfg.OnInvalidate != nil {
-			cfg.OnInvalidate(ctx.Window.RequestRedraw)
+			cfg.OnInvalidate(ctx.Window.InvalidateRender)
 			invalidateSent = true
 		}
 

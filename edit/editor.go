@@ -52,7 +52,7 @@ type EditorCfg struct {
 	// onto the editor.
 	OnFileDrop func(path string, w *gui.Window)
 
-	// OnInvalidate is called once with a RequestRedraw thunk.
+	// OnInvalidate is called once with an InvalidateRender thunk.
 	// Decoration providers that do background work should store
 	// the thunk and call it when new data is ready.
 	OnInvalidate func(func())

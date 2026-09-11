@@ -59,7 +59,7 @@ type Highlighter struct {
 	// lastViewport caches the most recent Decorate viewport so
 	// retokenizeFrom can cap work to viewport + lookahead.
 	lastViewport   buffer.Viewport
-	invalidate     func() // RequestRedraw thunk; may be nil
+	invalidate     func() // InvalidateRender thunk; may be nil
 	removeEdit     func() // remove handle for OnEdit observer
 	overrideColors map[chroma.TokenType]uint32
 }
@@ -103,7 +103,7 @@ func New(buf *buffer.Buffer, language string, style *chroma.Style) *Highlighter 
 	return h
 }
 
-// SetInvalidateFunc stores the RequestRedraw thunk.
+// SetInvalidateFunc stores the InvalidateRender thunk.
 func (h *Highlighter) SetInvalidateFunc(fn func()) {
 	h.mu.Lock()
 	h.invalidate = fn

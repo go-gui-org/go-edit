@@ -12,7 +12,7 @@ func TriggerAction(w *gui.Window, focusID string, actionID string) {
 	st := loadState(w, focusID)
 	st.PendingAction = actionID
 	storeState(w, focusID, st)
-	w.RequestRedraw()
+	w.InvalidateRender()
 }
 
 // CursorPos returns the primary cursor's line and byte-column
