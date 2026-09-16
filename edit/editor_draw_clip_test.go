@@ -210,13 +210,14 @@ func TestTextLeftClip_NaNClipLeft(t *testing.T) {
 }
 
 func TestTextLeftClip_NaNX(t *testing.T) {
-	// NaN x → need is NaN → guard renders full string.
+	// NaN x → need is NaN → guard passes the full string to dc.Text.
+	// go-gui v0.77.0 (#598) drops a Text call with a non-finite
+	// position, so nothing is recorded and nothing panics.
 	dc := newTestDC()
 	nan := float32(math.NaN())
 	textLeftClip(dc, nan, 0, "hello", gui.TextStyle{}, 50, 8)
-	ts := textsIn(dc)
-	if len(ts) != 1 {
-		t.Fatalf("NaN x: want 1 entry, got %d", len(ts))
+	if ts := textsIn(dc); len(ts) != 0 {
+		t.Fatalf("NaN x: want 0 entries, got %d", len(ts))
 	}
 }
 
