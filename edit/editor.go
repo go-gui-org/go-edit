@@ -38,12 +38,12 @@ type EditorCfg struct {
 	Theme            EditorTheme
 	// Font, when Set, overrides the monospace TextStyle used for
 	// all editor text rendering and measurement. The supplied
-	// style fully replaces theme.M5; callers are responsible for
+	// style fully replaces theme.TextStyleCodeSmall; callers are responsible for
 	// providing a complete TextStyle (Family, Typeface, Size,
 	// Color). The same style is used by both the draw path and
 	// the cached Measurer, so any drift between them — for
 	// example, mismatched Typeface or Size — produces visible
-	// per-character gaps. When unset, theme.M5 is used.
+	// per-character gaps. When unset, theme.TextStyleCodeSmall is used.
 	Font        gui.Opt[gui.TextStyle]
 	Decorations []DecorationProvider
 	Keymaps     []*Keymap         // pushed on top of DefaultKeymap
@@ -125,18 +125,18 @@ func sanitizeFontSize(size, fallback float32) float32 {
 // rendering. Both the draw path and the Measurer must use this same
 // style so the cached monospace advance matches rendered glyph width;
 // drift between the two sites causes visible per-character gaps.
-// cfg.Font, when Set, overrides theme.M5; empty Family or invalid
-// Size borrow theme.M5 so the editor never falls back to a
+// cfg.Font, when Set, overrides theme.TextStyleCodeSmall; empty Family or invalid
+// Size borrow theme.TextStyleCodeSmall so the editor never falls back to a
 // proportional system font or zero-size glyphs.
 func editorMonoStyle(cfg EditorCfg, theme gui.Theme) gui.TextStyle {
 	if s, ok := cfg.Font.Value(); ok {
 		if s.Family == "" {
-			s.Family = theme.M5.Family
+			s.Family = theme.TextStyleCodeSmall.Family
 		}
-		s.Size = sanitizeFontSize(s.Size, theme.M5.Size)
+		s.Size = sanitizeFontSize(s.Size, theme.TextStyleCodeSmall.Size)
 		return s
 	}
-	return theme.M5
+	return theme.TextStyleCodeSmall
 }
 
 // minDimension is the smallest viewport width/height the editor will
