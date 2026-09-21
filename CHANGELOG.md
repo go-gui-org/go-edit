@@ -1,9 +1,6 @@
 # Changelog
 
-## Unreleased
-
-- Migrate mono rungs to go-gui semantic text roles (`M5` → `TextStyleCodeSmall`)
-  and bump go-gui v0.77.0 → v0.78.0.
+## [Unreleased]
 
 - **BREAKING: event callbacks take a single `gui.EventCtx`.** deps: bump go-gui
   to v0.52.0. Callbacks that took `(*gui.Layout, *gui.Event, *gui.Window)` now
@@ -18,7 +15,12 @@
   traversal and accelerators.
 - Migration guide upstream: `docs/migration-eventctx.md` in go-gui.
 
-## v0.10.3 — 2026-05-24
+## [v0.11.0] - 2026-09-21
+
+- Migrate mono rungs to go-gui semantic text roles (`M5` → `TextStyleCodeSmall`)
+  and bump go-gui v0.77.0 → v0.78.0.
+
+## [v0.10.3] - 2026-05-24
 
 - scroll: keep cursor 8px from horizontal viewport edge.
 - deps: bump go-gui to v0.20.2, go-glyph to v1.8.0.
