@@ -1000,9 +1000,9 @@ func TestEditorMonoStyle_EmptyFamilyFallsBackToMono(t *testing.T) {
 	override := gui.TextStyle{Size: 14}
 	cfg := EditorCfg{Font: gui.Some(override)}
 	got := editorMonoStyle(cfg, theme)
-	if got.Family != theme.M5.Family {
+	if got.Family != theme.TextStyleCodeSmall.Family {
 		t.Fatalf("Family=%q, want mono fallback %q",
-			got.Family, theme.M5.Family)
+			got.Family, theme.TextStyleCodeSmall.Family)
 	}
 	if got.Size != 14 {
 		t.Errorf("Size=%v, want 14 (caller override preserved)", got.Size)
@@ -1034,7 +1034,7 @@ func TestEditorMonoStyle_PreservesNonFamilyFields(t *testing.T) {
 	got := editorMonoStyle(cfg, theme)
 
 	want := override
-	want.Family = theme.M5.Family
+	want.Family = theme.TextStyleCodeSmall.Family
 	if got != want {
 		t.Errorf("got %+v\nwant %+v", got, want)
 	}
@@ -1046,7 +1046,7 @@ func TestEditorMonoStyle_EmptyFamilyAndEmptyTheme(t *testing.T) {
 	cfg := EditorCfg{Font: gui.Some(override)}
 	got := editorMonoStyle(cfg, theme)
 	if got.Family != "" {
-		t.Fatalf("Family=%q, want \"\" (theme.M5.Family also empty)",
+		t.Fatalf("Family=%q, want \"\" (theme.TextStyleCodeSmall.Family also empty)",
 			got.Family)
 	}
 	if got.Size != 12 {
@@ -1061,10 +1061,10 @@ func TestEditorMonoStyle_BadSizeFallsBack(t *testing.T) {
 		size float32
 		want float32
 	}{
-		{"NaN", float32(math.NaN()), theme.M5.Size},
-		{"NegInf", float32(math.Inf(-1)), theme.M5.Size},
-		{"Zero", 0, theme.M5.Size},
-		{"Negative", -10, theme.M5.Size},
+		{"NaN", float32(math.NaN()), theme.TextStyleCodeSmall.Size},
+		{"NegInf", float32(math.Inf(-1)), theme.TextStyleCodeSmall.Size},
+		{"Zero", 0, theme.TextStyleCodeSmall.Size},
+		{"Negative", -10, theme.TextStyleCodeSmall.Size},
 		{"PosInf", float32(math.Inf(1)), maxFontSize},
 		{"TooLarge", 1e9, maxFontSize},
 		{"TooSmall", 0.1, minFontSize},

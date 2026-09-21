@@ -317,7 +317,7 @@ func mainView(w *gui.Window) gui.View {
 		decos = s.decosBuf[:]
 	}
 
-	mono := gui.CurrentTheme().M5
+	mono := gui.CurrentTheme().TextStyleCodeSmall
 	mono.Family = "SF Mono Terminal"
 	mono.Size = 12
 
@@ -387,7 +387,7 @@ func statusBar(
 		dirty = "  [modified]"
 	}
 
-	ts := theme.M4
+	ts := theme.Mono(theme.TextStyleBodySmall)
 	ts.Color = gui.RGBA(180, 180, 180, 255)
 
 	return gui.Row(gui.ContainerCfg{
