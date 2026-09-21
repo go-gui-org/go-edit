@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Migrate mono rungs to go-gui semantic text roles (`M5` → `TextStyleCodeSmall`)
+  and bump go-gui v0.77.0 → v0.78.0.
+
 - **BREAKING: event callbacks take a single `gui.EventCtx`.** deps: bump go-gui
   to v0.52.0. Callbacks that took `(*gui.Layout, *gui.Event, *gui.Window)` now
   take `func(gui.EventCtx)`, exposing the three as `ctx.Layout`, `ctx.Event` and
