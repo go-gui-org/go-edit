@@ -23,7 +23,7 @@ type EditorCfg struct {
 	Width            float32
 	Height           float32
 	Padding          gui.Padding
-	SizeBorder       gui.Opt[float32]
+	SizeBorder       gui.Border
 	ShowLineNumbers  bool
 	ShowBracketMatch bool
 	ShowWhitespace   WhitespaceMode

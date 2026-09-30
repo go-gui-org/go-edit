@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- **BREAKING: `EditorCfg.SizeBorder` takes a `gui.Border` (go-gui v0.82.0).**
+  Bump go-gui v0.81.0 → v0.82.0. The field changed from `gui.Opt[float32]` to
+  match the go-gui Cfg fields. Migration: `gui.Some[float32](0)` →
+  `gui.NoBorder`, `gui.SomeF(1)` → `gui.BorderThin` (follows the theme),
+  `gui.SomeF(n)` → `gui.BorderPx(n)`.
+
 - **BREAKING: event callbacks take a single `gui.EventCtx`.** deps: bump go-gui
   to v0.52.0. Callbacks that took `(*gui.Layout, *gui.Event, *gui.Window)` now
   take `func(gui.EventCtx)`, exposing the three as `ctx.Layout`, `ctx.Event` and
