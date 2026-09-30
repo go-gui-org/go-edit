@@ -327,7 +327,7 @@ func mainView(w *gui.Window) gui.View {
 		Width:            editorW,
 		Height:           editorH,
 		Padding:          gui.NoPadding,
-		SizeBorder:       gui.Some[float32](0),
+		SizeBorder:       gui.NoBorder,
 		ShowLineNumbers:  s.ShowLineNumbers,
 		ShowBracketMatch: s.ShowBracketMatch,
 		ShowWhitespace:   s.ShowWhitespace,
@@ -361,7 +361,7 @@ func mainView(w *gui.Window) gui.View {
 		Sizing:     gui.FixedFixed,
 		Padding:    gui.NoPadding,
 		SizeBorder: gui.NoBorder,
-		Spacing:    gui.Some[float32](0),
+		Spacing:    gui.NoSpacing,
 		Content: []gui.View{
 			editorView,
 			statusBar(w, s, theme),
