@@ -15,7 +15,7 @@ go test ./edit/buffer/ -run TestApplyOnEmptyBuffer   # single test
 go test -fuzz=FuzzBufferApply -fuzztime=30s ./edit/buffer/
 go test -bench=. -benchmem -run='^$' ./edit/buffer/  # buffer benches
 go vet ./...
-golangci-lint run               # config in .golangci.yml, copied from go-gui
+make lint                       # pinned in tools/lint; config in .golangci.yml
 go build ./examples/basic       # requires CGO backend (SDL2, freetype, etc.)
 ```
 

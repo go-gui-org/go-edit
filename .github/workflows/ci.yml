@@ -59,8 +59,10 @@ jobs:
         working-directory: go-edit
         run: go vet ./edit/...
 
+      # Builds the linter pinned in tools/lint/go.mod, the same binary
+      # `make lint` runs locally.
       - name: Lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          working-directory: go-edit
-          args: ./edit/...
+        working-directory: go-edit
+        run: |
+          make lint-bin
+          GOWORK=off .bin/golangci-lint run ./edit/...

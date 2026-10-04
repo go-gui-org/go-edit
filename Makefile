@@ -2,7 +2,7 @@
 # `make app` packages examples/npad as a macOS .app bundle ready
 # to drop into /Applications.
 
-.PHONY: test test-race vet lint build build-examples prepush app clean-app clean
+.PHONY: test test-race vet lint lint-bin build build-examples prepush app clean-app clean
 
 DEMO_BIN     := npad
 APP_NAME     := Npad
@@ -26,11 +26,17 @@ SIGN_FLAG    := $(if $(SIGN_IDENTITY),-sign "$(SIGN_IDENTITY)",)
 # go-gui checkout still works.
 GO := GOWORK=off go
 
+# Repo-local bin for the pinned linter. The pinned VERSION itself lives in
+# tools/lint/go.mod -- see the $(LINT_BIN) rule below. `make lint` and CI
+# both build from that file, so a local pass and a CI pass run one version.
+LINT_DIR = $(CURDIR)/.bin
+LINT_BIN = $(LINT_DIR)/golangci-lint
+
 # golangci-lint is its own binary, so $(GO) does not cover it — but it
 # honours go.work the same way the toolchain does. Without GOWORK=off it
 # would type-check against sibling working copies and report breakage that
 # CI, which builds the pinned versions, will never see.
-LINT := GOWORK=off golangci-lint
+LINT := GOWORK=off $(LINT_BIN)
 
 # CI scopes tests to ./edit/... — examples are built, not tested.
 test:
@@ -48,7 +54,19 @@ test-race:
 vet:
 	$(GO) vet ./...
 
-lint:
+# Build the pinned golangci-lint into .bin/. It rebuilds only when
+# tools/lint/go.mod or go.sum change. GOWORK=off keeps a local go.work out
+# of the build. GOOS/GOARCH/CGO_ENABLED are cleared so a caller that sets
+# them to pick a lint target does not cross-compile the linter itself into
+# a binary this host cannot run.
+$(LINT_BIN): tools/lint/go.mod tools/lint/go.sum
+	GOWORK=off GOOS= GOARCH= CGO_ENABLED=0 GOFLAGS= GOBIN=$(LINT_DIR) \
+	  go -C tools/lint install \
+	  github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+
+lint-bin: $(LINT_BIN)
+
+lint: $(LINT_BIN)
 	$(LINT) run
 
 build:

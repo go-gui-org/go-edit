@@ -133,7 +133,7 @@ Individual targets for a tighter loop while iterating:
 make test            # go test ./edit/...
 make test-race       # race + shuffle
 make vet             # go vet ./...
-make lint            # golangci-lint
+make lint            # golangci-lint, pinned in tools/lint
 make build-examples  # compile examples into build/
 ```
 
