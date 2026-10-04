@@ -41,6 +41,9 @@ package-lock.json
 go.work
 go.work.sum
 
+# Pinned linter binary, built by `make lint` from tools/lint.
+/.bin/
+
 # Dependency directory
 vendor/
 .claude/
