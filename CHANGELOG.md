@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+- **CJK and other composing input methods work again.** Bump go-gui to v0.88.1.
+  The editor's focus container now sets `ContainerCfg.AcceptsTextInput`, so
+  go-gui starts the platform input method (IME) while the editor holds focus.
+  Before this, go-gui started the input method only for widgets with a built-in
+  text shape, and composed text could not be typed into the editor (go-gui
+  #999). A read-only editor does not set the flag.
+- **Text being composed is visible.** The editor read the IME preedit every
+  frame but never drew it, so a composition stayed invisible until it was
+  committed. The preedit now draws at the caret, with a thin underline, a thick
+  underline under the selected clause, and the input method's caret.
+- **Unicode spaces insert.** Space in a Japanese input method sends U+3000
+  IDEOGRAPHIC SPACE, which the editor dropped. Typed characters are now filtered
+  with `unicode.IsGraphic` instead of `unicode.IsPrint`, so U+3000, NBSP and the
+  other Unicode spaces insert.
+
 - **BREAKING: `EditorCfg.SizeBorder` takes a `gui.Border` (go-gui v0.82.0).**
   Bump go-gui v0.81.0 → v0.82.0. The field changed from `gui.Opt[float32]` to
   match the go-gui Cfg fields. Migration: `gui.Some[float32](0)` →

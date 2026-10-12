@@ -187,10 +187,6 @@ func Editor(cfg EditorCfg) gui.View {
 
 	a11yLabel := editorA11YLabel(cfg)
 	a11yDesc := strconv.Itoa(cfg.Buffer.LineCount()) + " lines"
-	var a11yState gui.AccessState
-	if cfg.ReadOnly {
-		a11yState = gui.AccessStateReadOnly
-	}
 
 	// Stable per-ID canvas ID lets go-gui's DrawCanvas cache
 	// reuse tessellated output across frames whose Version hasn't
@@ -236,24 +232,47 @@ func Editor(cfg EditorCfg) gui.View {
 		Content:     []gui.View{cursorCanvas},
 	})
 
-	return gui.Column(gui.ContainerCfg{
-		ID:          cfg.ID,
-		Focusable:   true,
-		Width:       cfg.Width,
-		Height:      cfg.Height,
-		Sizing:      gui.FixedFixed,
-		Padding:     cfg.Padding,
-		SizeBorder:  cfg.SizeBorder,
-		Clip:        true,
-		A11YRole:    gui.AccessRoleTextArea,
-		A11YCfg:     gui.A11YCfg{A11YLabel: a11yLabel},
-		A11YState:   a11yState,
-		OnKeyDown:   editorOnKeyDown(cfg, frame),
-		OnChar:      editorOnChar(cfg, frame),
-		OnFileDrop:  editorOnFileDrop(cfg),
-		AmendLayout: editorAmendLayout(cfg, frame),
-		Content:     []gui.View{canvas, cursorOverlay},
-	})
+	return gui.Column(editorRootCfg(
+		cfg, frame, a11yLabel, []gui.View{canvas, cursorOverlay}))
+}
+
+// editorRootCfg builds the config of the focusable root container.
+// It is split out of Editor so tests can check the config without a
+// render pass.
+func editorRootCfg(
+	cfg EditorCfg, frame *editorFrameData,
+	a11yLabel string, content []gui.View,
+) gui.ContainerCfg {
+	var a11yState gui.AccessState
+	if cfg.ReadOnly {
+		a11yState = gui.AccessStateReadOnly
+	}
+	return gui.ContainerCfg{
+		ID:        cfg.ID,
+		Focusable: true,
+		// The text is drawn on a DrawCanvas, so go-gui cannot see
+		// that this container takes typed text. Without this flag the
+		// platform input method never starts and CJK input cannot be
+		// typed (go-gui #999). A read-only editor stays out: an active
+		// input method takes keys such as Option+I on macOS for
+		// composition (go-gui #393). The preedit and commit paths are
+		// in updateIMEState and editorOnChar.
+		AcceptsTextInput: !cfg.ReadOnly,
+		Width:            cfg.Width,
+		Height:           cfg.Height,
+		Sizing:           gui.FixedFixed,
+		Padding:          cfg.Padding,
+		SizeBorder:       cfg.SizeBorder,
+		Clip:             true,
+		A11YRole:         gui.AccessRoleTextArea,
+		A11YCfg:          gui.A11YCfg{A11YLabel: a11yLabel},
+		A11YState:        a11yState,
+		OnKeyDown:        editorOnKeyDown(cfg, frame),
+		OnChar:           editorOnChar(cfg, frame),
+		OnFileDrop:       editorOnFileDrop(cfg),
+		AmendLayout:      editorAmendLayout(cfg, frame),
+		Content:          content,
+	}
 }
 
 // editorOnFileDrop returns the OnFileDrop callback for the root

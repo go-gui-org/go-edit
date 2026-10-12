@@ -68,7 +68,7 @@ Public entry points are guarded against bad input and should stay that way:
 - `Editor(cfg)` with nil Buffer substitutes `buffer.New()`. Width/Height run through `sanitizeDim` (clamps NaN/Inf/negative/zero/over-large to `[1, 1<<20]`).
 - `editorOnMouseScroll` drops NaN or absurd (`|dy| > 1e6`) scroll deltas.
 - `clampScroll` / `ensureCursorVisible` guard NaN and zero line-height.
-- `editorOnChar` filters via `acceptChar` (`unicode.IsPrint(r) || r == '\t'`).
+- `editorOnChar` filters via `acceptChar` (`unicode.IsGraphic(r) || r == '\t'`).
 
 Any new public entry point should follow the same pattern; add tripwire tests in `*_hardening_test.go`.
 
