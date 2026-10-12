@@ -518,14 +518,19 @@ func drawLineText(
 }
 
 // editorOnDrawCursor returns the OnDraw closure for the cursor
-// overlay canvas. Reads frame.cursorVisible (set by the blink
-// computation in editorAmendLayout) and renders cursor carets only
-// when visible. Closes over the same *editorFrameData as the main
-// canvas, so the two share state without round-tripping through
-// the StateMap.
+// overlay canvas. It draws the IME preedit, and the cursor carets
+// when frame.cursorVisible (set by the blink computation in
+// editorAmendLayout) is true. Closes over the same *editorFrameData
+// as the main canvas, so the two share state without round-tripping
+// through the StateMap.
+//
+// The preedit lives here, not on the main canvas, because this
+// canvas bypasses the DrawCanvas cache (ID ""). The main canvas
+// redraws only when its Version changes, and the preedit is not part
+// of that hash.
 func editorOnDrawCursor(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawContext) {
 	return func(dc *gui.DrawContext) {
-		if !frame.valid || !frame.cursorVisible {
+		if !frame.valid {
 			return
 		}
 		if frame.lineHeight <= 0 || frame.state.Measurer == nil {
@@ -536,83 +541,181 @@ func editorOnDrawCursor(cfg EditorCfg, frame *editorFrameData) func(*gui.DrawCon
 		if frame.state.HelpActive {
 			return
 		}
-		drawCursors(dc, cfg, frame)
+		// The preedit is drawn whatever the blink phase is: it is
+		// text, not the caret, and must not flash with it.
+		drawPreedit(dc, cfg, frame)
+		if frame.cursorVisible {
+			drawCursors(dc, cfg, frame)
+		}
 	}
 }
 
-// drawCursors draws all cursor carets.
+// preeditActive reports whether an IME composition is drawn over the
+// primary cursor this frame. The find bar takes typed text while it
+// is open, so a composition then belongs to it, not to the buffer.
+func preeditActive(frame *editorFrameData) bool {
+	return frame.imeComposing && frame.imePreedit != "" &&
+		len(frame.state.Cursors) > 0 && !frame.state.Search.Active
+}
+
+// caretPos returns the canvas-local top-left of the caret for cs.
+// ok is false when the caret is not on screen: inside a fold, outside
+// the visible rows, or under the sticky scroll headers.
+func caretPos(
+	cfg EditorCfg, frame *editorFrameData, cs *CursorState,
+	firstVis, lastVis int,
+) (x, y float32, ok bool) {
+	st := &frame.state
+	buf := cfg.Buffer
+	folds := st.FoldedRanges
+	hasFolds := cfg.EnableFolding && len(folds) > 0
+	if hasFolds && isFolded(folds, cs.Cursor.Line) {
+		return 0, 0, false
+	}
+	lb := buf.Line(cs.Cursor.Line)
+	var visRow int
+	var breaks []int
+	if frame.wrapActive && st.Measurer != nil {
+		visRow = globalLogicalToVisualRow(
+			buf, st.Measurer, frame.wrapWidth,
+			folds, cs.Cursor.Line)
+		breaks = computeBreaks(lb, st.Measurer, frame.wrapWidth)
+		we := wrapEntry{BreakCols: breaks}
+		visRow += wrapCursorVisualRow(&we, cs.Cursor.ByteCol)
+	} else if hasFolds {
+		visRow = logicalToVisible(cs.Cursor.Line, folds)
+	} else {
+		visRow = cs.Cursor.Line
+	}
+	if visRow < firstVis || visRow > lastVis {
+		return 0, 0, false
+	}
+	y = float32(visRow)*frame.lineHeight - st.ScrollY
+	// Sticky scroll headers occupy the top rows of the viewport
+	// and occlude any caret that would draw behind them.
+	if y < frame.stickyH {
+		return 0, 0, false
+	}
+	x = frame.gutterW + frame.padLeft - st.ScrollX +
+		st.Measurer.XForColumn(lb, cs.Cursor.ByteCol)
+	if len(breaks) > 0 {
+		// On a wrapped sub-row, x restarts at the sub-row start.
+		we := wrapEntry{BreakCols: breaks}
+		sr := wrapCursorVisualRow(&we, cs.Cursor.ByteCol)
+		subStart, _ := wrapSubRowRange(&we, len(lb), sr)
+		x -= st.Measurer.XForColumn(lb, subStart)
+	}
+	return x, y, true
+}
+
+// visibleRows returns the first and last visual rows on screen for a
+// canvas of height h.
+func visibleRows(cfg EditorCfg, frame *editorFrameData, h float32) (int, int) {
+	visTot := frame.totalVisRows
+	if visTot <= 0 {
+		visTot = cfg.Buffer.LineCount()
+	}
+	return visibleRowRange(frame.state.ScrollY, h,
+		frame.lineHeight, visTot)
+}
+
+// caretColor is the theme's cursor color, or the text color when the
+// theme sets none.
+func caretColor(style gui.TextStyle, rt resolvedTheme) gui.Color {
+	if rt.cursorColor.IsSet() {
+		return rt.cursorColor
+	}
+	return style.Color
+}
+
+// drawCursors draws all cursor carets. While a preedit is drawn, the
+// primary caret is skipped: drawPreedit puts its own caret inside the
+// composition.
 func drawCursors(
 	dc *gui.DrawContext,
 	cfg EditorCfg,
 	frame *editorFrameData,
 ) {
-	st := frame.state
-	lh := frame.lineHeight
-	buf := cfg.Buffer
-	folds := st.FoldedRanges
-	hasFolds := cfg.EnableFolding && len(folds) > 0
-	wrapOn := frame.wrapActive
-
-	visTot := frame.totalVisRows
-	if visTot <= 0 {
-		visTot = buf.LineCount()
-	}
-	firstVis, lastVis := visibleRowRange(
-		st.ScrollY, dc.Height, lh, visTot)
-	textX := frame.gutterW + frame.padLeft - st.ScrollX
-
+	st := &frame.state
+	firstVis, lastVis := visibleRows(cfg, frame, dc.Height)
 	style := editorMonoStyle(cfg, gui.CurrentTheme())
-	rt := resolveEditorTheme(cfg.Theme)
-	// Sticky scroll headers occupy the top rows of the viewport
-	// and occlude any cursor that would draw behind them. Skip
-	// cursors whose canvas-local y falls inside that band.
-	stickyH := frame.stickyH
+	curColor := caretColor(style, resolveEditorTheme(cfg.Theme))
+	skipPrimary := preeditActive(frame)
 	for ci := range st.Cursors {
-		cs := &st.Cursors[ci]
-		if hasFolds && isFolded(folds, cs.Cursor.Line) {
+		if ci == 0 && skipPrimary {
 			continue
 		}
-		lb := buf.Line(cs.Cursor.Line)
-		var cVisRow int
-		var curBreaks []int
-		if wrapOn && st.Measurer != nil {
-			cVisRow = globalLogicalToVisualRow(
-				buf, st.Measurer, frame.wrapWidth,
-				folds, cs.Cursor.Line)
-			curBreaks = computeBreaks(lb,
-				st.Measurer, frame.wrapWidth)
-			we := wrapEntry{BreakCols: curBreaks}
-			cVisRow += wrapCursorVisualRow(&we,
-				cs.Cursor.ByteCol)
-		} else if hasFolds {
-			cVisRow = logicalToVisible(cs.Cursor.Line, folds)
-		} else {
-			cVisRow = cs.Cursor.Line
-		}
-		if cVisRow < firstVis || cVisRow > lastVis {
+		cx, cy, ok := caretPos(cfg, frame, &st.Cursors[ci],
+			firstVis, lastVis)
+		if !ok {
 			continue
 		}
-		cy := float32(cVisRow)*lh - st.ScrollY
-		if cy < stickyH {
-			continue
-		}
-		cx := textX + st.Measurer.XForColumn(lb,
-			cs.Cursor.ByteCol)
-		if len(curBreaks) > 0 {
-			we := wrapEntry{BreakCols: curBreaks}
-			sr := wrapCursorVisualRow(&we, cs.Cursor.ByteCol)
-			subStart, _ := wrapSubRowRange(&we, len(lb), sr)
-			cx = textX +
-				st.Measurer.XForColumn(lb,
-					cs.Cursor.ByteCol) -
-				st.Measurer.XForColumn(lb, subStart)
-		}
-		curColor := style.Color
-		if rt.cursorColor.IsSet() {
-			curColor = rt.cursorColor
-		}
-		dc.FilledRect(cx, cy, 1, lh, curColor)
+		dc.FilledRect(cx, cy, 1, frame.lineHeight, curColor)
 	}
+}
+
+// drawPreedit draws the IME composition at the primary caret. The
+// text is not in the buffer yet; it is drawn on a background fill so
+// it covers the buffer text after the caret instead of mixing with
+// it. A thin underline marks the whole preedit, the way macOS and
+// Windows mark text being composed. A thick underline marks the
+// selected clause while the input method converts it. With no clause
+// selected, a caret marks the input method's cursor.
+func drawPreedit(dc *gui.DrawContext, cfg EditorCfg, frame *editorFrameData) {
+	if !preeditActive(frame) {
+		return
+	}
+	firstVis, lastVis := visibleRows(cfg, frame, dc.Height)
+	x, y, ok := caretPos(cfg, frame, &frame.state.Cursors[0],
+		firstVis, lastVis)
+	if !ok {
+		return
+	}
+	theme := gui.CurrentTheme()
+	style := editorMonoStyle(cfg, theme)
+	rt := resolveEditorTheme(cfg.Theme)
+	lh := frame.lineHeight
+	pre := frame.imePreedit
+
+	bg := rt.background
+	if !bg.IsSet() {
+		bg = theme.ColorBackground
+	}
+	w := dc.TextWidth(pre, style)
+	dc.FilledRect(x, y, w, lh, bg)
+	dc.Text(x, y, pre, style)
+	dc.FilledRect(x, y+lh-1, w, 1, style.Color)
+
+	// imeCursor and imeSelLen count runes; go-gui clamps them to the
+	// preedit length (Window.imeUpdate), and runeByteOffset clamps
+	// again so a bad value cannot slice past the string.
+	b0 := runeByteOffset(pre, frame.imeCursor)
+	cx := x + dc.TextWidth(pre[:b0], style)
+	if frame.imeSelLen > 0 {
+		b1 := runeByteOffset(pre, frame.imeCursor+frame.imeSelLen)
+		cw := dc.TextWidth(pre[b0:b1], style)
+		dc.FilledRect(cx, y+lh-2, cw, 2, style.Color)
+		return
+	}
+	if frame.cursorVisible {
+		dc.FilledRect(cx, y, 1, lh, caretColor(style, rt))
+	}
+}
+
+// runeByteOffset returns the byte offset of rune n in s, clamped to
+// [0, len(s)].
+func runeByteOffset(s string, n int) int {
+	if n <= 0 {
+		return 0
+	}
+	i := 0
+	for b := range s {
+		if i == n {
+			return b
+		}
+		i++
+	}
+	return len(s)
 }
 
 // drawStickyScroll draws pinned scope headers at the top.

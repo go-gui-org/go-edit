@@ -1082,3 +1082,21 @@ func TestEditorMonoStyle_BadSizeFallsBack(t *testing.T) {
 		})
 	}
 }
+
+// runeByteOffset slices the IME preedit with offsets that come from
+// an out-of-process input method. Any value must land inside the
+// string on a rune boundary.
+func TestRuneByteOffset_Clamps(t *testing.T) {
+	s := "aにb" // byte offsets of runes: 0, 1, 4; len 5
+	for _, tc := range []struct{ n, want int }{
+		{-5, 0}, {0, 0}, {1, 1}, {2, 4}, {3, 5}, {99, 5},
+	} {
+		if got := runeByteOffset(s, tc.n); got != tc.want {
+			t.Errorf("runeByteOffset(%q, %d) = %d, want %d",
+				s, tc.n, got, tc.want)
+		}
+	}
+	if got := runeByteOffset("", 3); got != 0 {
+		t.Errorf("empty string: got %d, want 0", got)
+	}
+}

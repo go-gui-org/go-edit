@@ -200,3 +200,134 @@ func TestIME_PrimaryCursorHiddenFlag(t *testing.T) {
 			frame.imePreedit, "test")
 	}
 }
+
+// The root container must opt in to the platform input method, or
+// go-gui never starts it for a DrawCanvas editor and CJK input
+// cannot be typed (go-gui #999). A read-only editor must stay out:
+// an active input method claims keys such as Option+I on macOS.
+func TestIME_RootAcceptsTextInput(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		readOnly bool
+		want     bool
+	}{
+		{"editable", false, true},
+		{"read-only", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := EditorCfg{ID: "e1", ReadOnly: tc.readOnly}
+			got := editorRootCfg(cfg, &editorFrameData{}, "", nil)
+			if got.AcceptsTextInput != tc.want {
+				t.Fatalf("AcceptsTextInput = %v, want %v",
+					got.AcceptsTextInput, tc.want)
+			}
+			if !got.Focusable {
+				t.Fatal("root container must stay focusable")
+			}
+		})
+	}
+}
+
+// Space in a Japanese input method sends U+3000 IDEOGRAPHIC SPACE,
+// not U+0020. unicode.IsPrint accepts only the ASCII space, so the
+// editor dropped it. Other Unicode spaces (NBSP, em space) are text
+// too and must also insert.
+func TestIME_UnicodeSpacesInsert(t *testing.T) {
+	for _, r := range []rune{0x3000, 0xA0, 0x2003} {
+		buf := buffer.New()
+		d := newDriver(EditorCfg{
+			ID: "e1", Buffer: buf, Width: 400, Height: 200,
+		})
+		d.tick()
+		d.sendIMEChar(string(r))
+		if got := string(buf.Line(0)); got != string(r) {
+			t.Errorf("%U: buffer = %q, want %q", r, got, string(r))
+		}
+	}
+}
+
+// drawOverlay runs the cursor overlay's OnDraw against a fresh
+// DrawContext that measures with the fake 8 px advance.
+func (d *driver) drawOverlay() *gui.DrawContext {
+	dc := gui.NewDrawContext(d.cfg.Width, d.cfg.Height,
+		d.w.TextMeasurer())
+	editorOnDrawCursor(d.cfg, d.frame)(dc)
+	return dc
+}
+
+// composeAt sets the frame's IME state as AmendLayout would read it
+// from the window mid-composition.
+func (d *driver) composeAt(preedit string, cursor, selLen int) {
+	d.frame.imeComposing = true
+	d.frame.imePreedit = preedit
+	d.frame.imeCursor = cursor
+	d.frame.imeSelLen = selLen
+}
+
+// preeditEntry returns the text entry that draws want, if any.
+func preeditEntry(dc *gui.DrawContext, want string) (gui.DrawCanvasTextEntry, bool) {
+	for _, e := range dc.Texts() {
+		if e.Text == want {
+			return e, true
+		}
+	}
+	return gui.DrawCanvasTextEntry{}, false
+}
+
+// Text being composed must be visible at the caret. Before this the
+// editor read the preedit every frame but never drew it, so a
+// composition was invisible until commit.
+func TestIME_PreeditDrawnAtCaret(t *testing.T) {
+	buf := buffer.New()
+	buf.Apply(buffer.Edit{NewBytes: []byte("ab\ncd")})
+	d := newDriver(EditorCfg{
+		ID: "e1", Buffer: buf, Width: 400, Height: 200,
+	})
+	d.tick()
+	st := loadState(d.w, d.cfg.ID)
+	st.Cursors = []CursorState{{
+		Cursor: buffer.Position{Line: 1, ByteCol: 1},
+		Anchor: buffer.Position{Line: 1, ByteCol: 1},
+	}}
+	storeState(d.w, d.cfg.ID, st)
+	d.tick()
+	d.composeAt("にほん", 3, 0)
+
+	e, ok := preeditEntry(d.drawOverlay(), "にほん")
+	if !ok {
+		t.Fatal("preedit not drawn")
+	}
+	f := d.frame
+	wantX := f.gutterW + f.padLeft +
+		f.state.Measurer.XForColumn([]byte("cd"), 1)
+	wantY := 1 * f.lineHeight
+	if e.X != wantX || e.Y != wantY {
+		t.Fatalf("preedit at (%v, %v), want (%v, %v)",
+			e.X, e.Y, wantX, wantY)
+	}
+}
+
+// The overlay skips the caret while the blink is off. The preedit
+// shares that canvas but must not blink with it.
+func TestIME_PreeditDrawnWhileCaretBlinkedOff(t *testing.T) {
+	d := newDriver(EditorCfg{
+		ID: "e1", Buffer: buffer.New(), Width: 400, Height: 200,
+	})
+	d.tick()
+	d.frame.cursorVisible = false
+	d.composeAt("かな", 2, 0)
+	if _, ok := preeditEntry(d.drawOverlay(), "かな"); !ok {
+		t.Fatal("preedit hidden while caret blinked off")
+	}
+}
+
+// No composition, no preedit text in the overlay.
+func TestIME_NoPreeditWhenNotComposing(t *testing.T) {
+	d := newDriver(EditorCfg{
+		ID: "e1", Buffer: buffer.New(), Width: 400, Height: 200,
+	})
+	d.tick()
+	if n := len(d.drawOverlay().Texts()); n != 0 {
+		t.Fatalf("overlay drew %d text entries, want 0", n)
+	}
+}

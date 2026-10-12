@@ -628,8 +628,14 @@ func insertNewline(cfg EditorCfg, cs *CursorState, buf *buffer.Buffer) {
 }
 
 // acceptChar reports whether r should be inserted into the buffer
-// when received as a character event. Printable runes and tab pass;
-// everything else (control chars, \n/\r, null) is rejected.
+// when received as a character event. Graphic runes and tab pass;
+// everything else (control chars, \n/\r, null, format chars) is
+// rejected.
+//
+// IsGraphic, not IsPrint: IsPrint accepts only the ASCII space, so
+// it dropped U+3000 IDEOGRAPHIC SPACE, which a Japanese input method
+// sends for Space, and NBSP and the other Unicode spaces. IsGraphic
+// adds the space separators (Zs) and nothing else.
 func acceptChar(r rune) bool {
-	return r == '\t' || unicode.IsPrint(r)
+	return r == '\t' || unicode.IsGraphic(r)
 }

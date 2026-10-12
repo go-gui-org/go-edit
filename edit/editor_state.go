@@ -164,8 +164,8 @@ type editorFrameData struct {
 
 	// IME composition state, read from Window each frame in
 	// editorAmendLayout. Purely visual — not inserted into the
-	// buffer. Read by editorOnDraw (preedit rendering) and
-	// editorOnDrawCursor (hide primary caret during composition).
+	// buffer. Read by editorOnDrawCursor, which draws the preedit
+	// at the primary caret and hides that caret meanwhile.
 	imeComposing bool
 	imePreedit   string
 	imeCursor    int // cursor offset in preedit (runes)
