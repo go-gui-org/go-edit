@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [v0.12.0] - 2026-10-12
+
+### Changed
+
+- **BREAKING: `EditorCfg.SizeBorder` takes a `gui.Border` (go-gui v0.82.0).**
+  Bump go-gui v0.81.0 → v0.82.0. The field changed from `gui.Opt[float32]` to
+  match the go-gui Cfg fields. Migration: `gui.Some[float32](0)` →
+  `gui.NoBorder`, `gui.SomeF(1)` → `gui.BorderThin` (follows the theme),
+  `gui.SomeF(n)` → `gui.BorderPx(n)`.
+
+### Fixed
+
 - **CJK and other composing input methods work again.** Bump go-gui to v0.88.1.
   The editor's focus container now sets `ContainerCfg.AcceptsTextInput`, so
   go-gui starts the platform input method (IME) while the editor holds focus.
@@ -17,12 +29,12 @@
   with `unicode.IsGraphic` instead of `unicode.IsPrint`, so U+3000, NBSP and the
   other Unicode spaces insert.
 
-- **BREAKING: `EditorCfg.SizeBorder` takes a `gui.Border` (go-gui v0.82.0).**
-  Bump go-gui v0.81.0 → v0.82.0. The field changed from `gui.Opt[float32]` to
-  match the go-gui Cfg fields. Migration: `gui.Some[float32](0)` →
-  `gui.NoBorder`, `gui.SomeF(1)` → `gui.BorderThin` (follows the theme),
-  `gui.SomeF(n)` → `gui.BorderPx(n)`.
+## [v0.11.0] - 2026-09-21
 
+### Changed
+
+- Migrate mono rungs to go-gui semantic text roles (`M5` → `TextStyleCodeSmall`)
+  and bump go-gui v0.77.0 → v0.78.0.
 - **BREAKING: event callbacks take a single `gui.EventCtx`.** deps: bump go-gui
   to v0.52.0. Callbacks that took `(*gui.Layout, *gui.Event, *gui.Window)` now
   take `func(gui.EventCtx)`, exposing the three as `ctx.Layout`, `ctx.Event` and
@@ -35,11 +47,6 @@
   an empty file drop. Without those the editor would have swallowed Tab
   traversal and accelerators.
 - Migration guide upstream: `docs/migration-eventctx.md` in go-gui.
-
-## [v0.11.0] - 2026-09-21
-
-- Migrate mono rungs to go-gui semantic text roles (`M5` → `TextStyleCodeSmall`)
-  and bump go-gui v0.77.0 → v0.78.0.
 
 ## [v0.10.3] - 2026-05-24
 
