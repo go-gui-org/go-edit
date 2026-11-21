@@ -8,7 +8,7 @@ import (
 )
 
 // ActionFunc is the implementation of a named editor action.
-type ActionFunc func(cfg EditorCfg, st *editorState, buf *buffer.Buffer, w *gui.Window)
+type ActionFunc func(cfg EditorCfg, st *EditorState, buf *buffer.Buffer, w *gui.Window)
 
 // Action bundles an action ID with its implementation and
 // metadata controlling post-action behavior.

@@ -17,9 +17,9 @@ const nsEdit = "edit.state"
 // per window.
 const capEdit = 64
 
-// editorState is the persistent per-instance state, stored in the
+// EditorState is the persistent per-instance state, stored in the
 // window's StateMap across frames.
-type editorState struct {
+type EditorState struct {
 	Cursors  []CursorState // sorted by position; index 0 = primary
 	ScrollY  float32       // pixels
 	ScrollX  float32       // pixels
@@ -55,6 +55,9 @@ type editorState struct {
 	// AmendLayout pass. Set via TriggerAction; cleared after use.
 	PendingAction string
 }
+
+// editorState remains as an internal alias used across the package.
+type editorState = EditorState
 
 // primary returns a pointer to the primary cursor (index 0).
 // Caller must ensure Cursors is non-empty (ensureCursors does this).
