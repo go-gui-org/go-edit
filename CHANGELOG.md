@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Bump go-gui v0.99.1 to v0.100.0 and go-glyph v1.29.2 to v1.29.3.**
+  Dependency update.
+
 ## [v0.12.0] - 2026-10-12
 
 ### Changed
